@@ -1,25 +1,39 @@
-# -*- coding: utf-8 -*-
-"""Genera assets/icon.ico del Sistema AT (medalla con 'AT' en la paleta institucional)."""
+"""generar_icono.py — Crea assets/icon.ico del Sistema AT (Pillow)."""
+from __future__ import annotations
+
+from pathlib import Path
+
 from PIL import Image, ImageDraw, ImageFont
 
-S = 256
-img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-d = ImageDraw.Draw(img)
+RAIZ = Path("/home/z/my-project/download/SistemaAT")
+TAMANO = 256
 
-# Fondo índigo redondeado (accent #6366f1)
-d.rounded_rectangle([8, 8, S - 8, S - 8], radius=56, fill=(99, 102, 241, 255))
 
-# Cintas de la medalla
-d.polygon([(S // 2 - 40, 140), (S // 2 - 78, 238), (S // 2 - 16, 216)], fill=(79, 70, 229, 255))
-d.polygon([(S // 2 + 40, 140), (S // 2 + 78, 238), (S // 2 + 16, 216)], fill=(79, 70, 229, 255))
+def principal() -> None:
+    imagen = Image.new("RGBA", (TAMANO, TAMANO), (0, 0, 0, 0))
+    dibujo = ImageDraw.Draw(imagen)
+    # Fondo redondeado azul oscuro
+    dibujo.rounded_rectangle([8, 8, TAMANO - 8, TAMANO - 8], radius=48, fill=(15, 23, 42, 255))
+    # Círculo indigo
+    dibujo.ellipse([52, 44, TAMANO - 52, TAMANO - 84], fill=(99, 102, 241, 255))
+    # Texto AT
+    try:
+        fuente = ImageFont.load_default(size=104)
+    except TypeError:  # Pillow < 10.1
+        fuente = ImageFont.load_default()
+    texto = "AT"
+    caja = dibujo.textbbox((0, 0), texto, font=fuente)
+    ancho_texto = caja[2] - caja[0]
+    dibujo.text(((TAMANO - ancho_texto) / 2 - caja[0], 58), texto, font=fuente, fill=(255, 255, 255, 255))
+    # Medalla inferior
+    dibujo.rounded_rectangle([88, 168, TAMANO - 88, 216], radius=18, fill=(16, 185, 129, 255))
 
-# Medalla
-d.ellipse([S // 2 - 54, 30, S // 2 + 54, 138], fill=(245, 158, 11, 255))
-d.ellipse([S // 2 - 54, 30, S // 2 + 54, 138], outline=(248, 250, 252, 255), width=8)
+    destino = RAIZ / "assets" / "icon.ico"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    imagen.save(destino, sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+    imagen.convert("RGB").save(RAIZ / "assets" / "icon.png")
+    print(f"[OK] {destino}")
 
-fuente = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 58)
-d.text((S // 2, 84), "AT", font=fuente, fill=(15, 23, 42, 255), anchor="mm")
 
-salida = "/home/z/my-project/download/atletas_system/assets/icon.ico"
-img.save(salida, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
-print("Icono generado:", salida)
+if __name__ == "__main__":
+    principal()
