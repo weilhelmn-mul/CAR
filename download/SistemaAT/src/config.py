@@ -16,7 +16,7 @@ from pathlib import Path
 # Identidad de la aplicación
 # ----------------------------------------------------------------------
 APP_NAME: str = "Sistema AT"
-APP_VERSION: str = "1.0"
+APP_VERSION: str = "1.1"
 APP_ORG: str = "IPD · DINADAF"
 
 # ----------------------------------------------------------------------

@@ -13,7 +13,7 @@ from typing import Any, Callable
 
 import customtkinter as ctk
 
-from src.config import APP_NAME, APP_ORG, ruta_recurso
+from src.config import APP_NAME, APP_ORG, APP_VERSION, ruta_recurso
 from src.theme import COLORS, FONTS
 from src.views.at_f1 import AtF1View
 from src.views.at_f3 import AtF3View
@@ -97,7 +97,7 @@ class MainWindow(ctk.CTk):
                        padx=12, pady=3)
             self._botones_nav[clave] = boton
 
-        pie = ctk.CTkLabel(barra, text="v1.0 · DINADAF 2026", font=FONTS["small"],
+        pie = ctk.CTkLabel(barra, text=f"v{APP_VERSION} · DINADAF 2026", font=FONTS["small"],
                            text_color="#94a3b8")
         pie.grid(row=20, column=0, sticky="ew", padx=20, pady=16)
 

@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 
 RAIZ = Path("/home/z/my-project/download")
-ZIP = RAIZ / "SistemaAT_Portable_USB_v1.0.zip"
+ZIP = RAIZ / "SistemaAT_Portable_v1.1.zip"
 DEST = Path("/tmp/verificacion")
 PY_TEST = "/tmp/venv_test/bin/python"
 
@@ -69,6 +69,7 @@ esperadas = sorted(["PLANTILLA FORMATO AT-F3.xlsx", "PLANTILLA FORMATO AT-F1 CAR
                     "PLANTILLA FORMATO ATF8.xlsx", "PLANTILLA FORMATO AT -F9.xlsx"])
 check(plantillas == esperadas, f"4 plantillas oficiales con nombres exactos: {plantillas}")
 for rel in ("main.py", "PORTABLE", "LEEME_PORTABLE.txt", "CONSOLA_DEBUG.bat",
+            "INICIAR_SISTEMA.bat",
             "assets/icon.ico", "src/config.py", "src/main_window.py", "src/database.py",
             "src/theme.py", "src/widgets.py",
             "src/views/dashboard.py", "src/views/deportistas.py", "src/views/at_f3.py",
@@ -79,6 +80,11 @@ for rel in ("main.py", "PORTABLE", "LEEME_PORTABLE.txt", "CONSOLA_DEBUG.bat",
     check((app / rel).exists(), f"Aplicación: {rel}")
 check('if (raiz / "PORTABLE").exists():' in (app / "src/config.py").read_text(encoding="utf-8"),
       "config.py con lógica de marcador PORTABLE (datos junto al exe)")
+cfg_txt = (app / "src/config.py").read_text(encoding="utf-8")
+check('APP_VERSION: str = "1.1"' in cfg_txt, "Versión 1.1 en config.py")
+mn_txt = (app / "main.py").read_text(encoding="utf-8")
+check("report_callback_exception" in mn_txt and "no pudo iniciarse" in mn_txt,
+      "main.py v1.1: arranque protegido + errores de Tk visibles")
 
 # ============================================================ FASE 2
 PRUEBA = r'''

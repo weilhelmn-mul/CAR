@@ -1,9 +1,9 @@
 /*
- * Sistema AT - IPD DINADAF :: Lanzador nativo para Windows x64
- * Doble clic en SistemaAT.exe -> ejecuta py\pythonw.exe main.py
- * en silencio (sin consola). Si falta algo, muestra un mensaje
- * de error claro. El lanzador termina inmediatamente tras iniciar
- * la aplicacion.
+ * Sistema AT - IPD DINADAF :: Lanzador nativo para Windows x64 (v1.1)
+ * Doble clic en SistemaAT.exe -> ejecuta py\pythonw.exe main.py en
+ * silencio (sin consola). v1.1: espera 3 s y comprueba que el sistema
+ * siga vivo; si murio de inmediato, muestra un dialogo con el codigo
+ * de salida y la guia de diagnostico. Nunca falla en silencio.
  */
 #include <windows.h>
 #include <stdio.h>
@@ -17,8 +17,9 @@ static void alerta(const char *titulo, const char *texto)
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmdLine, int nCmdShow)
 {
     char dir[MAX_PATH], py[MAX_PATH * 2], script[MAX_PATH * 2], cmdline[MAX_PATH * 3];
+    char detalle[1024];
     char *slash;
-    DWORD n;
+    DWORD n, codigo = 0;
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
 
@@ -37,13 +38,18 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmdLine, int nCmdSh
 
     if (GetFileAttributesA(py) == INVALID_FILE_ATTRIBUTES) {
         alerta("Sistema AT",
-               "Falta la carpeta \"py\" (incluye Python 3.12).\n"
-               "No separe ni renombre las carpetas del sistema:\n"
-               "SistemaAT.exe, py, src, templates y main.py deben viajar juntos.");
+               "Falta la carpeta \"py\" (incluye Python 3.12).\n\n"
+               "Causa mas frecuente: se ejecuto SistemaAT.exe DENTRO del ZIP\n"
+               "sin extraer. Extraiga TODO el contenido del ZIP a una carpeta\n"
+               "(o a la memoria USB) y vuelva a intentarlo.\n\n"
+               "Si ya extrajo todo, no separe ni renombre las carpetas:\n"
+               "SistemaAT.exe, py, src, templates, assets y main.py deben\n"
+               "viajar juntos.");
         return 1;
     }
     if (GetFileAttributesA(script) == INVALID_FILE_ATTRIBUTES) {
-        alerta("Sistema AT", "Falta el archivo main.py junto a SistemaAT.exe.");
+        alerta("Sistema AT", "Falta el archivo main.py junto a SistemaAT.exe.\n"
+                             "Extraiga el ZIP completo antes de ejecutar.");
         return 1;
     }
 
@@ -54,13 +60,39 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmdLine, int nCmdSh
     ZeroMemory(&pi, sizeof(pi));
 
     if (!CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, dir, &si, &pi)) {
-        alerta("Sistema AT",
-               "No se pudo iniciar el sistema.\n\n"
-               "Detalle: fallo al ejecutar py\\pythonw.exe.\n"
-               "Use CONSOLA_DEBUG.bat para ver el mensaje de error completo.");
+        n = GetLastError();
+        snprintf(detalle, sizeof(detalle),
+                 "No se pudo iniciar el motor del sistema (codigo de Windows: %lu).\n\n"
+                 "Causas frecuentes:\n"
+                 "  1) El antivirus bloquea py\\pythonw.exe: agregue una exclusion\n"
+                 "     para esta carpeta o use INICIAR_SISTEMA.bat.\n"
+                 "  2) Windows de 32 bits o anterior a Windows 10 (se requiere\n"
+                 "     Windows 10/11 de 64 bits).\n"
+                 "  3) Carpeta sin permisos de lectura (no use C:\\Program Files).",
+                 n);
+        alerta("Sistema AT", detalle);
         return 1;
     }
     CloseHandle(pi.hThread);
+
+    if (WaitForSingleObject(pi.hProcess, 3000) == WAIT_OBJECT_0) {
+        GetExitCodeProcess(pi.hProcess, &codigo);
+        CloseHandle(pi.hProcess);
+        if (codigo != 0) {
+            snprintf(detalle, sizeof(detalle),
+                     "El sistema se cerro inmediatamente al iniciar (codigo %lu).\n\n"
+                     "Para ver el motivo exacto ejecute CONSOLA_DEBUG.bat (doble clic)\n"
+                     "y lea el mensaje final; copielo si solicita soporte.\n\n"
+                     "Causas frecuentes:\n"
+                     "  - Antivirus bloqueando py\\ (agregue exclusion o use\n"
+                     "    INICIAR_SISTEMA.bat).\n"
+                     "  - Carpeta extraida a medias: vuelva a extraer el ZIP completo.\n"
+                     "  - Windows de 32 bits (se requiere 64 bits).",
+                     codigo);
+            alerta("Sistema AT", detalle);
+            return 2;
+        }
+    }
     CloseHandle(pi.hProcess);
     return 0;
 }

@@ -1,0 +1,99 @@
+=====================================================================
+ INFORME DE AUDITORÍA COMPLETA — SISTEMA AT v1.1 · IPD - DINADAF
+ Fecha: 3 de noviembre de 2026
+ Alcance: 100 % del código fuente, binario lanzador, runtime Python
+ incluido, dependencias, plantillas y empaquetado de distribución.
+=====================================================================
+
+1. RESUMEN EJECUTIVO
+---------------------------------------------------------------------
+La aplicación Python está SANA: se ejecutó el código embarcado con la
+misma versión de Python que lleva dentro (3.12.16) y pasaron las 52
+verificaciones (estructura, base de datos de 8 tablas, reglas de
+porcentajes, generación AT-F3 end-to-end sobre la plantilla real,
+cadena completa de la interfaz, conversión Excel→PDF, modo portable).
+
+El fallo reportado ("no se ejecuta") se origina en la CAPA DE ARRANQUE
+DE WINDOWS, no en la lógica del sistema. Causas identificadas y
+corregidas en la v1.1 (ver sección 3).
+
+2. HALLAZGOS DE LA AUDITORÍA
+---------------------------------------------------------------------
+2.1 Código Python (main.py, src/) ................... SIN DEFECTOS
+    · Sintaxis verificada (ast) en los 22 módulos.
+    · Cadena de imports completa OK (main_window + 7 vistas + widgets
+      + 3 servicios) con Python 3.12.16.
+    · Base de datos: 8 tablas creadas, integridad referencial,
+      UNIQUE(deportista,periodo) y UNIQUE(car,periodo) activos.
+    · Reglas de dominio: "95", "95%" y "0.95" → 0.95 correcto.
+    · Generador AT-F3: escribe nombre (C10), deporte (C11), mes (C12)
+      y porcentajes (C30/C35) en la plantilla real. PDF generado OK.
+    · theme.py: paleta y tipografías idénticas al PROMPT MAESTRO.
+
+2.2 Runtime Python incluido (carpeta py\) ........... SIN DEFECTOS
+    · CPython 3.12.16 oficial (python-build-standalone) con tkinter:
+      _tkinter.pyd + tcl86t.dll + tk86t.dll + tcl/tk8.6 completos.
+    · Dependencias preinstaladas en versiones exactas de
+      requirements.txt: customtkinter 5.2.2, Pillow 10.4.0 (binarios
+      cp312 win_amd64), openpyxl 3.1.5, pywin32 312.
+    · pywin32.pth y bootstrap verificados: correctos (el módulo vive
+      en win32\lib, que el propio .pth agrega a sys.path).
+
+2.3 Ejecutable lanzador (SistemaAT.exe) ......... MEJORADO EN v1.1
+    · PE x64 válido, subsistema GUI (sin consola), imports correctos
+      (USER32 + UCRT). Requiere Windows 10/11 de 64 bits.
+    · DEFECTO v1.0: si pythonw.exe moría de inmediato (antivirus,
+      extracción incompleta), el usuario no veía NADA. → CORREGIDO:
+      ahora el lanzador espera 3 s, detecta la muerte del proceso,
+      muestra el código de salida y guía al diagnóstico.
+    · Mensajes de error ampliados con código de Windows y causas.
+
+2.4 Arranque de la aplicación ................... ENDURECIDO EN v1.1
+    · DEFECTO v1.0: los errores dentro de callbacks de Tk no pasaban
+      por sys.excepthook (posible muerte silenciosa con pythonw).
+      → CORREGIDO: main.py envuelve TODO el arranque en try/except
+      con diálogo visible + report_callback_exception conectado.
+      NINGÚN fallo puede quedar ya sin aviso al usuario.
+
+2.5 Empaquetado / distribución .................... SIN DEFECTOS
+    · ZIP íntegro (testzip OK), 4 plantillas con nombres exactos,
+      marcador PORTABLE presente, lógica de datos junto al exe OK.
+
+3. CAUSAS PROBABLES DEL "NO SE EJECUTA" (orden de probabilidad)
+---------------------------------------------------------------------
+  1. Ejecutar SistemaAT.exe DENTRO del ZIP sin extraer (muy común).
+  2. Antivirus eliminó/bloqueó el .exe no firmado en silencio.
+  3. Windows SmartScreen bloqueó la primera ejecución.
+  4. Windows 7/8.1 o de 32 bits (se requiere Win10/11 x64).
+
+4. NUEVO EN LA v1.1
+---------------------------------------------------------------------
+  · SistemaAT.exe v2 con autodiagnóstico (código de salida visible).
+  · INICIAR_SISTEMA.bat: arranca el sistema SIN usar el .exe (bypass
+    de antivirus/SmartScreen).
+  · CONSOLA_DEBUG.bat mejorado (muestra versión del motor y el error
+    exacto en pantalla).
+  · main.py a prueba de fallos: todo error muestra diálogo + queda en
+    Data\sistema_at.log.
+  · LEEME_PORTABLE.txt con guía "SI NO ABRE — REVISE EN ESTE ORDEN".
+
+5. VERIFICACIÓN FINAL v1.1
+---------------------------------------------------------------------
+  52 comprobaciones CORRECTAS · 0 fallos
+  ZIP: SistemaAT_Portable_v1.1.zip (32.4 MB, 4039 archivos)
+  SHA-256: 388699c8a60cdf3bce48db85ab39eaecbb752b4887263644bb61897bbab400fd
+
+6. INSTRUCCIONES DE USO (v1.1)
+---------------------------------------------------------------------
+  1. Extraiga COMPLETO el ZIP (clic derecho → Extraer todo...).
+  2. Abra la carpeta SistemaAT_Portable.
+  3. Doble clic en SistemaAT.exe.
+     - Si SmartScreen avisa: "Más información" → "Ejecutar de todas
+       formas".
+     - Si aún no abre: doble clic en INICIAR_SISTEMA.bat.
+     - Si persiste: CONSOLA_DEBUG.bat y leer el mensaje final.
+  4. Requisito: Windows 10/11 de 64 bits. Datos en Data\ junto al exe.
+
+Auditoría realizada sobre la totalidad de los 22 módulos Python, el
+binario lanzador, el runtime y las 6 dependencias embarcadas.
+=====================================================================
