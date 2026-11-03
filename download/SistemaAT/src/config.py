@@ -48,11 +48,15 @@ def _base_recursos() -> Path:
 def _directorio_datos() -> tuple[Path, bool]:
     """Decide dónde viven los datos según el modo de ejecución.
 
-    1. PORTABLE: exe congelado + archivo marcador ``PORTABLE`` junto al ejecutable
-       → los datos viven en ``<carpeta del exe>/Data`` (ideal para memorias USB).
-    2. INSTALADO: exe congelado sin marcador → ``%LOCALAPPDATA%\\SistemaAT``.
-    3. DESARROLLO: ``<proyecto>/data``.
+    1. PORTABLE congelado: exe compilado + archivo marcador ``PORTABLE`` junto
+       al ejecutable → los datos viven en ``<carpeta del exe>/Data`` (USB).
+    2. PORTABLE con Python incluido: carpeta con marcador ``PORTABLE`` en la
+       raíz del proyecto, ejecutada con un Python no congelado (p. ej. el
+       intérprete portátil de ``py\\``) → ``<raíz del proyecto>/Data``.
+    3. INSTALADO: exe congelado sin marcador → ``%LOCALAPPDATA%\\SistemaAT``.
+    4. DESARROLLO: ``<proyecto>/data``.
     """
+    raiz = Path(__file__).resolve().parent.parent
     if getattr(sys, "frozen", False):
         carpeta_exe = Path(sys.executable).resolve().parent
         if (carpeta_exe / "PORTABLE").exists():
@@ -62,7 +66,11 @@ def _directorio_datos() -> tuple[Path, bool]:
             # USB/destino sin permisos: cae a LOCALAPPDATA sin perder datos
         base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
         return base / "SistemaAT", False
-    return Path(__file__).resolve().parent.parent / "data", False
+    if (raiz / "PORTABLE").exists():
+        datos = raiz / "Data"
+        if _directorio_escribible(datos):
+            return datos, True
+    return raiz / "data", False
 
 
 DATA_DIR: Path
