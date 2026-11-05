@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Guía de instalación y uso frecuente — Sistema AT · IPD</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+@page {
+  size: 720px 1020px;
+  margin: 0;
+}
+:root {
+  --ink: #0f172a;
+  --ink-2: #334155;
+  --muted: #64748b;
+  --accent: #4f46e5;
+  --accent-soft: #6366f1;
+  --card: #f1f5f9;
+  --stripe: #eef2ff;
+  --border: #e2e8f0;
+  --warn-bg: #fef7ed;
+  --warn-border: #f0d9b8;
+  --warn-ink: #92580a;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 720px;
+  background: #ffffff;
+  color: var(--ink);
+  font-family: 'Inter', 'Liberation Sans', sans-serif;
+  font-size: 15px;
+  line-height: 1.62;
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+@media screen {
+  html {
+    height: auto;
+    display: flex;
+    justify-content: center;
+    background: #e9edf4;
+  }
+  body {
+    margin: 20px auto;
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.18);
+  }
+}
+p { margin: 0 0 10px 0; }
+b { font-weight: 700; }
+* { box-sizing: border-box; }
+
+/* ---------- Header band ---------- */
+.band {
+  background: linear-gradient(135deg, #0f172a 0%, #1e2650 100%);
+  color: #f8fafc;
+  padding: 44px 56px 38px 56px;
+  break-inside: avoid;
+  break-after: avoid;
+}
+.band-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 100%; }
+.chip {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border: 1px solid rgba(248, 250, 252, 0.35);
+  border-radius: 999px;
+  color: #e0e7ff;
+}
+.chip-solid { background: var(--accent-soft); border-color: var(--accent-soft); color: #ffffff; }
+.band h1 {
+  margin: 20px 0 10px 0;
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.5px;
+}
+.band .sub {
+  font-size: 15px;
+  color: #c7d2fe;
+  max-width: 560px;
+  line-height: 1.55;
+}
+.band-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; max-width: 100%; }
+.band-tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: #eef2ff;
+  background: rgba(99, 102, 241, 0.28);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+/* ---------- Main content ---------- */
+.main-content {
+  padding: 40px 56px 34px 56px;
+}
+.section-header { break-after: avoid; break-inside: avoid; margin-top: 26px; }
+.section-header.first { margin-top: 0; }
+.section-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.section-title {
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
+}
+.divider {
+  width: 46px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 2px;
+  margin: 10px 0 14px 0;
+}
+.body-text { color: var(--ink-2); }
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  break-inside: avoid;
+}
+.card-accent {
+  background: var(--stripe);
+  border: 1px solid #dfe3f8;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  break-inside: avoid;
+}
+.card-title { font-size: 14.5px; font-weight: 800; margin-bottom: 6px; color: var(--ink); }
+.card p:last-child { margin-bottom: 0; }
+
+/* Hosting answer */
+.verdict {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  background: var(--stripe);
+  border: 1px solid #dfe3f8;
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 14px;
+  break-inside: avoid;
+}
+.verdict-no {
+  flex: 0 0 auto;
+  min-width: 96px;
+  text-align: center;
+  background: var(--accent);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 14px 12px;
+}
+.verdict-no .big { font-size: 34px; font-weight: 900; line-height: 1; }
+.verdict-no .small { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; margin-top: 4px; }
+.verdict-text { flex: 1 1 auto; min-width: 240px; }
+.two-col { display: flex; flex-wrap: wrap; gap: 14px; max-width: 100%; break-inside: avoid; }
+.two-col .card { flex: 1 1 280px; min-width: 260px; max-width: 100%; margin-bottom: 0; }
+.two-col + .card, .card + .two-col { margin-top: 14px; }
+
+/* Steps */
+.step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 13px 16px;
+  margin-bottom: 10px;
+  break-inside: avoid;
+}
+.step-n {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+.step-body { flex: 1 1 auto; min-width: 200px; }
+.step-body b { display: block; font-size: 14.5px; margin-bottom: 2px; }
+.step-body span { font-size: 13.5px; color: var(--ink-2); }
+.mono {
+  font-family: 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+  font-size: 12.5px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* Warning */
+.warn {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  break-inside: avoid;
+}
+.warn .card-title { color: var(--warn-ink); }
+.warn p { color: #7c5a1e; font-size: 13.5px; }
+
+/* Data map */
+.data-row {
+  display: flex;
+  gap: 12px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--border);
+  break-inside: avoid;
+}
+.data-row:last-child { border-bottom: none; }
+.data-path {
+  flex: 0 0 210px;
+  min-width: 170px;
+  font-family: 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.data-desc { flex: 1 1 auto; min-width: 200px; font-size: 13.5px; color: var(--ink-2); }
+
+/* Share options */
+.opt {
+  display: flex;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  break-inside: avoid;
+}
+.opt-letter {
+  flex: 0 0 auto;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--accent);
+  margin-top: -2px;
+}
+.opt-body { flex: 1 1 auto; min-width: 220px; }
+.opt-body b { display: block; font-size: 14.5px; margin-bottom: 3px; }
+.opt-body p { font-size: 13.5px; color: var(--ink-2); margin-bottom: 0; }
+
+/* FAQ */
+.faq-grid { display: flex; flex-wrap: wrap; gap: 12px; max-width: 100%; break-inside: avoid; }
+.faq {
+  flex: 1 1 280px;
+  min-width: 260px;
+  max-width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 17px;
+  break-inside: avoid;
+}
+.faq b { display: block; font-size: 13.5px; margin-bottom: 4px; }
+.faq p { font-size: 13px; color: var(--ink-2); margin-bottom: 0; }
+
+/* Footer strip */
+.foot {
+  margin-top: 26px;
+  background: var(--ink);
+  color: #cbd5e1;
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  break-inside: avoid;
+}
+.foot b { color: #f8fafc; }
+</style>
+</head>
+<body>
+
+<!-- ================= HEADER ================= -->
+<div class="band">
+  <div class="band-chips">
+    <span class="chip chip-solid">Sistema AT &middot; v2.1</span>
+    <span class="chip">IPD &middot; DINADAF</span>
+  </div>
+  <h1>Instalación y uso frecuente</h1>
+  <div class="sub">Guía práctica del Sistema de Gestión de Formatos AT: cómo instalarlo en su PC, usarlo a diario, respaldar sus datos y compartirlo con su equipo.</div>
+  <div class="band-tags">
+    <span class="band-tag">Programa de escritorio</span>
+    <span class="band-tag">100 % offline</span>
+    <span class="band-tag">No necesita hosting</span>
+    <span class="band-tag">Windows 10 / 11</span>
+  </div>
+</div>
+
+<div class="main-content">
+
+  <!-- ================= 1. HOSTING ================= -->
+  <div class="section-header first">
+    <div class="section-tag">Pregunta clave</div>
+    <div class="section-title">¿Necesito un hosting?</div>
+    <div class="divider"></div>
+  </div>
+
+  <div class="verdict">
+    <div class="verdict-no">
+      <div class="big">NO</div>
+      <div class="small">no se necesita</div>
+    </div>
+    <div class="verdict-text">
+      <p>El Sistema AT es un <b>programa de escritorio</b>: se ejecuta íntegramente en su computadora con Windows y trabaja <b>sin internet, sin navegador y sin servidor</b>. La base de datos, las firmas y los formatos generados viven en una carpeta local (<span class="mono">Data\</span>) que usted controla. Nada que publicar, ningún alquiler de hosting que pagar: instale y use.</p>
+      <p>El hosting solo tendría sentido si varias personas debieran usar <b>el mismo sistema a la vez</b> desde sus navegadores, con los datos centralizados en un servidor. Eso corresponde a una versión web multiusuario, un proyecto aparte que puede solicitarse más adelante.</p>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Su caso: uso diario en su PC</div>
+      <p>Un programa instalado, un icono en el Escritorio y sus datos en la carpeta <span class="mono">Data</span>. Cero costos recurrentes y cero dependencia de internet: la información queda en su poder.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">¿Cuándo sí hablaríamos de hosting?</div>
+      <p>Si quisiera que varios usuarios, en distintas oficinas o desde casa, trabajen simultáneamente sobre la misma base de datos. Eso requiere migrar el sistema a una versión web con servidor (no es este proyecto).</p>
+    </div>
+  </div>
+
+  <!-- ================= 2. INSTALAR ================= -->
+  <div class="section-header">
+    <div class="section-tag">Forma B &middot; recomendada</div>
+    <div class="section-title">Instalarlo en su PC</div>
+    <div class="divider"></div>
+  </div>
+
+  <p class="body-text">Con el ZIP que ya tiene (<span class="mono">SistemaAT_Portable_v2.1.zip</span>) basta un asistente incluido. Cuatro pasos, sin permisos de administrador y sin instalar nada más:</p>
+
+  <div class="step">
+    <div class="step-n">1</div>
+    <div class="step-body">
+      <b>Descomprima el ZIP completo</b>
+      <span>Clic derecho sobre el archivo &rarr; «Extraer todo…». Obtendrá la carpeta <span class="mono">SistemaAT_Portable</span>.</span>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-n">2</div>
+    <div class="step-body">
+      <b>Ejecute el instalador</b>
+      <span>Entre a la carpeta y haga doble clic en <span class="mono">Instalar-SistemaAT.bat</span>.</span>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-n">3</div>
+    <div class="step-body">
+      <b>Espere 1 o 2 minutos</b>
+      <span>El sistema se copia a <span class="mono">%LOCALAPPDATA%\SistemaAT</span> y se crean los iconos «Sistema AT» en el Escritorio y en el Menú Inicio.</span>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-n">4</div>
+    <div class="step-body">
+      <b>Ábralo como cualquier programa</b>
+      <span>Icono del Escritorio, o tecla Windows y escriba «Sistema AT». Listo: ya está instalado para el trabajo de todos los días.</span>
+    </div>
+  </div>
+
+  <div class="card-accent">
+    <div class="card-title">Lo que hace el instalador (y lo que no)</div>
+    <p>Copia el sistema completo a una carpeta permanente de su usuario, crea los accesos directos y <b>conserva sus datos</b>: si ya venía usando el portable desde la USB, la carpeta <span class="mono">Data</span> se migra automáticamente a la nueva instalación. No pide permisos de administrador, no toca la configuración de Windows y puede repetirse cuando quiera.</p>
+  </div>
+
+  <div class="warn">
+    <div class="card-title">Si Windows muestra un aviso de seguridad (SmartScreen)</div>
+    <p>La primera vez, Windows puede preguntar si confía en el programa. Pulse «<b>Más información</b>» y luego «<b>Ejecutar de todas formas</b>». Es un aviso normal para programas sin firma digital; solo aparece al inicio.</p>
+  </div>
+
+  <!-- ================= 3. PORTABLE ================= -->
+  <div class="section-header">
+    <div class="section-tag">Forma A &middot; sin instalación</div>
+    <div class="section-title">Usarlo desde una USB</div>
+    <div class="divider"></div>
+  </div>
+
+  <p class="body-text">Si prefiere no instalar nada, descomprima el ZIP en la USB (o en cualquier carpeta) y haga doble clic en <span class="mono">SistemaAT.exe</span>. Todo —datos incluidos— queda en la carpeta <span class="mono">Data</span> junto al ejecutable, así que puede llevar la carpeta completa a otra PC y continuar donde quedó. Ambas formas pueden convivir: la instalación diaria en su PC y el portable en la USB como respaldo de campo.</p>
+
+  <!-- ================= 4. DATOS ================= -->
+  <div class="section-header">
+    <div class="section-tag">Uso frecuente</div>
+    <div class="section-title">Sus datos y el respaldo semanal</div>
+    <div class="divider"></div>
+  </div>
+
+  <p class="body-text">Todo lo registrado vive en la carpeta <span class="mono">Data</span> del sistema. Conocerla es la mejor protección contra imprevistos:</p>
+
+  <div class="card">
+    <div class="data-row">
+      <div class="data-path">Data\sistema_at.db</div>
+      <div class="data-desc">Base de datos: deportistas, formatos, firmas y configuración. Es el archivo más importante.</div>
+    </div>
+    <div class="data-row">
+      <div class="data-path">Data\generados\</div>
+      <div class="data-desc">Los formatos AT-F3, AT-F1, AT-F8 y AT-F9 que exporta en Excel y PDF.</div>
+    </div>
+    <div class="data-row">
+      <div class="data-path">Data\firmas\</div>
+      <div class="data-desc">Imágenes de firmas registradas para los formatos que las requieren.</div>
+    </div>
+    <div class="data-row">
+      <div class="data-path">Data\sistema_at.log</div>
+      <div class="data-desc">Registro técnico de eventos; útil si algún día hay que revisar un problema.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-n">1</div>
+    <div class="step-body">
+      <b>Respalde cada semana</b>
+      <span>Doble clic en <span class="mono">Respaldar-Datos.bat</span>: crea <span class="mono">Data_Backups\Respaldo_FECHA_HORA</span> con todo su contenido.</span>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-n">2</div>
+    <div class="step-body">
+      <b>Guarde la copia fuera de la PC</b>
+      <span>Copie ese respaldo a una USB o a su OneDrive / Google Drive. Para restaurar, copie el contenido del respaldo de vuelta a la carpeta <span class="mono">Data</span>.</span>
+    </div>
+  </div>
+
+  <div class="card-accent">
+    <div class="card-title">Truco con OneDrive</div>
+    <p>Si mueve la carpeta <span class="mono">Data</span> dentro de su carpeta de OneDrive, cada cambio quedará respaldado en la nube automáticamente. Útil si su PC es de uso compartido o si desea historial sin hacer nada manual.</p>
+  </div>
+
+  <!-- ================= 5. COMPARTIR ================= -->
+  <div class="section-header">
+    <div class="section-tag">Publicarlo</div>
+    <div class="section-title">Compartirlo con otras personas</div>
+    <div class="divider"></div>
+  </div>
+
+  <p class="body-text">«Publicar» aquí significa poner el sistema a disposición de otros. Hay tres caminos según el alcance que necesite:</p>
+
+  <div class="opt">
+    <div class="opt-letter">A</div>
+    <div class="opt-body">
+      <b>Entregarlo a un colega</b>
+      <p>Envíele el ZIP completo (correo, USB, Drive). Él lo descomprime y elige: usarlo portable o ejecutar el instalador en su propia PC. Cada persona maneja sus propios datos.</p>
+    </div>
+  </div>
+  <div class="opt">
+    <div class="opt-letter">B</div>
+    <div class="opt-body">
+      <b>Distribuirlo en la institución (red interna)</b>
+      <p>Coloque la carpeta en una unidad compartida de la oficina. Cada colega la copia a <b>su propia PC</b> y ejecuta el instalador allí. Importante: no se recomienda ejecutar el sistema directamente desde la carpeta compartida; la base de datos no fue diseñada para escritura simultánea desde varias máquinas.</p>
+    </div>
+  </div>
+  <div class="opt">
+    <div class="opt-letter">C</div>
+    <div class="opt-body">
+      <b>Acceso multiusuario desde el navegador</b>
+      <p>Si algún día se necesita que varios usuarios trabajen a la vez sobre los mismos datos desde cualquier PC, corresponde una versión web con hosting. Es un desarrollo aparte: puede solicitarse cuando la institución lo decida.</p>
+    </div>
+  </div>
+
+  <!-- ================= 6. FAQ ================= -->
+  <div class="section-header">
+    <div class="section-tag">Dudas rápidas</div>
+    <div class="section-title">Preguntas frecuentes</div>
+    <div class="divider"></div>
+  </div>
+
+  <div class="faq-grid">
+    <div class="faq">
+      <b>¿Funciona sin internet?</b>
+      <p>Sí. Todo el sistema y sus datos son locales; internet no interviene en ninguna función.</p>
+    </div>
+    <div class="faq">
+      <b>¿Puedo actualizar sin perder datos?</b>
+      <p>Sí. El instalador conserva la carpeta <span class="mono">Data</span>; además conviene respaldar antes con <span class="mono">Respaldar-Datos.bat</span>.</p>
+    </div>
+    <div class="faq">
+      <b>¿Cómo lo quito de mi PC?</b>
+      <p>Ejecute <span class="mono">Desinstalar-SistemaAT.bat</span>: guarda una copia de sus datos en el Escritorio y retira el sistema y sus iconos.</p>
+    </div>
+    <div class="faq">
+      <b>¿Genera PDF de los formatos?</b>
+      <p>Con Microsoft Excel o LibreOffice instalados, la conversión a PDF es automática. Sin ellos, los Excel se generan igual.</p>
+    </div>
+    <div class="faq">
+      <b>¿Dónde quedan los Excel y PDF generados?</b>
+      <p>En <span class="mono">Data\generados\</span>, organizados por formato y fecha; el sistema le muestra la ruta al exportar.</p>
+    </div>
+    <div class="faq">
+      <b>¿Qué computadora necesito?</b>
+      <p>Windows 10 u 11 de 64 bits. No requiere Python ni instalar componentes adicionales.</p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>Sistema de Gestión de Formatos AT &middot; IPD — DINADAF</b> &nbsp;·&nbsp; Guía de instalación y uso frecuente &middot; v2.1 &middot; Noviembre 2026<br>
+    Consultas de soporte técnico: Área de Tecnología — DINADAF &nbsp;·&nbsp; Documentación complementaria: <span style="color:#e0e7ff">LEEME-INSTALACION.txt</span> (en la carpeta del sistema)
+  </div>
+
+</div>
+
+</body>
+</html>
