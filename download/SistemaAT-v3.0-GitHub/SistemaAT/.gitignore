@@ -15,7 +15,8 @@ Data_Backups/
 *.db-wal
 *.db-shm
 *.log
-config_ia.json        # clave de API del Asistente IA (solo local)
+# Clave de API del Asistente IA (solo local, NUNCA publicar)
+config_ia.json
 
 # ---- Compilación ----
 build/
