@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============ DEPORTISTAS ============
+model Deportista {
+  id              Int         @id @default(autoincrement())
+  orden           Int         @default(0)
+  apellidoPaterno String
+  apellidoMaterno String
+  nombres         String
+  dni             String      @unique
+  sexo            String // MASCULINO | FEMENINO
+  fechaIngreso    DateTime?
+  deporte         String // ATLETISMO | PARA ATLETISMO
+  fechaNacimiento DateTime
+  nivelTecnico    String // DC | DECAN | DP
+  modalidad       String // INTERNO | EXTERNO
+  telefono        String?
+  procedencia     String
+  categoria       String // U-18 | U-20 | U-23 | MAY | JUV
+  pad             Boolean     @default(false)
+  entrenador      String?
+  prueba          String?
+  activo          Boolean     @default(true)
+  retirado        Boolean     @default(false)
+  resultados      Resultado[]
+  alimentaciones  Alimentacion[]
+  informesF3      FormatoF3[]
+  createdAt       DateTime    @default(now())
+
+  @@index([categoria])
+  @@index([sexo])
+}
+
+// ============ RESULTADOS DEPORTIVOS ============
+model Resultado {
+  id           Int        @id @default(autoincrement())
+  deportistaId Int
+  deportista   Deportista @relation(fields: [deportistaId], references: [id], onDelete: Cascade)
+  fecha        DateTime
+  competencia  String
+  prueba       String
+  marca        String // representación textual "11.28" | "7.12"
+  marcaValor   Float // valor numérico para comparar
+  unidad       String // 'seg' (menor es mejor) | 'm' (mayor es mejor)
+  puesto       Int?
+  sede         String?
+  nivel        String? // CONTROL INTERNO | DEPARTAMENTAL | NACIONAL | INTERNACIONAL
+  createdAt    DateTime   @default(now())
+
+  @@index([deportistaId])
+  @@index([fecha])
+}
+
+// ============ ALIMENTACIÓN (quincenas) ============
+model Alimentacion {
+  id            Int     @id @default(autoincrement())
+  deportistaId  Int
+  periodo       String // '2026-11-Q1' | '2026-11-Q2'
+  incluido      Boolean @default(true)
+  observaciones String?
+  deportista    Deportista @relation(fields: [deportistaId], references: [id], onDelete: Cascade)
+
+  @@unique([deportistaId, periodo])
+}
+
+// ============ AT-F8: PLAN MENSUAL JUT ============
+model FormatoF8 {
+  id         Int      @id @default(autoincrement())
+  periodo    String   @unique // '2026-11'
+  federacion String   @default("FEDERACIÓN DEPORTIVA PERUANA DE ATLETISMO")
+  jefe       String?
+  actividades Json // [{actividad, fecha, hora, lugar, observaciones}]
+  updatedAt  DateTime @updatedAt
+}
+
+// ============ AT-F9: EVALUACIÓN DEL PLAN DEL MES ANTERIOR ============
+model FormatoF9 {
+  id                      Int      @id @default(autoincrement())
+  periodo                 String   @unique // mes evaluado '2026-10'
+  jefe                    String?
+  planificadas            Int      @default(0)
+  cumplidas               Int      @default(0)
+  evaluacionCumplimiento  String?
+  cumplimientoPreparacion Float? // 0-100
+  asistenciaPromedio      Float? // 0-100
+  dificultades            String?
+  resenaRevision          String?
+  visitas                 Int?
+  evaluacionVisitas       String?
+  resumenDificultades     String?
+  baseDatos               Boolean  @default(true)
+  calendario              Boolean  @default(true)
+  capacitaciones          Boolean  @default(true)
+  analisisObjetivos       String?
+  otrosInteres            String?
+  calificacion            String   @default("BUENO") // BUENO | REGULAR | MALO
+  updatedAt               DateTime @updatedAt
+}
+
+// ============ AT-F3: INFORME MENSUAL POR DEPORTISTA ============
+model FormatoF3 {
+  id                    Int      @id @default(autoincrement())
+  deportistaId          Int
+  periodo               String // '2026-11'
+  objetivos             String?
+  horario               Json? // {manana:[7], tarde:[7], noche:[7]}
+  asistencia            Float? // 0-100
+  cumplimiento          Float? // 0-100
+  testControles         String?
+  detallePreparacion    String?
+  competencias          String?
+  cumplimientoObjetivos String?
+  evaluacionGeneral     String?
+  observaciones         String?
+  deportista            Deportista @relation(fields: [deportistaId], references: [id], onDelete: Cascade)
+  updatedAt             DateTime @updatedAt
+
+  @@unique([deportistaId, periodo])
+}
+
+// ============ AT-F1: INFORME MENSUAL CONSOLIDADO CAR ============
+model FormatoF1 {
+  id        Int      @id @default(autoincrement())
+  periodo   String   @unique // '2026-11'
+  matriculas Json // [{cat, retiros, ingresos, damas, varones, total, sesiones, manana, tarde}]
+  textos    Json // {valoracionTecnica, dificultades, valoracionMedica, profilactico, balanceNutricional, funcionamientoCar, aspectosCar, otrosAspectos}
+  filas     Json // [{deportistaId, prueba, asistencia, cumplimiento, observaciones}]
+  updatedAt DateTime @updatedAt
+}
