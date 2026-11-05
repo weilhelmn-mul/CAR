@@ -15,13 +15,18 @@ import customtkinter as ctk
 
 from src.config import APP_NAME, APP_ORG, APP_VERSION, ruta_recurso
 from src.theme import COLORS, FONTS
+from src.views.alimentacion import AlimentacionView
+from src.views.analisis import AnalisisView
+from src.views.asistente import AsistenteView
 from src.views.at_f1 import AtF1View
 from src.views.at_f3 import AtF3View
 from src.views.at_f8 import AtF8View
 from src.views.at_f9 import AtF9View
 from src.views.dashboard import DashboardView
 from src.views.deportistas import DeportistasView
+from src.views.expediente import ExpedienteView
 from src.views.firmas import FirmasView
+from src.views.seguro import SeguroView
 
 log = logging.getLogger("sistema_at.ventana")
 
@@ -29,20 +34,30 @@ log = logging.getLogger("sistema_at.ventana")
 VISTAS: dict[str, Callable[[Any, Any], Any]] = {
     "dashboard": DashboardView,
     "deportistas": DeportistasView,
+    "asistente": AsistenteView,
     "at_f3": AtF3View,
     "at_f1": AtF1View,
     "at_f8": AtF8View,
     "at_f9": AtF9View,
+    "expediente": ExpedienteView,
+    "alimentacion": AlimentacionView,
+    "seguro": SeguroView,
+    "analisis": AnalisisView,
     "firmas": FirmasView,
 }
 
 NAVEGACION: list[tuple[str, str]] = [
     ("dashboard", "🏠  Panel"),
     ("deportistas", "🧍  Deportistas"),
+    ("asistente", "✨  Asistente IA"),
     ("at_f3", "📋  AT-F3 · Informe"),
     ("at_f1", "🗂️  AT-F1 · CAR"),
     ("at_f8", "🗓️  AT-F8 · Plan JUT"),
     ("at_f9", "✅  AT-F9 · Evaluación"),
+    ("expediente", "🥇  Expediente del atleta"),
+    ("alimentacion", "🥗  Alimentación"),
+    ("seguro", "🛡️  Seguros"),
+    ("analisis", "📊  Análisis deportivo"),
     ("firmas", "✍️  Firmas"),
 ]
 

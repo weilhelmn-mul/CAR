@@ -16,7 +16,7 @@ from pathlib import Path
 # Identidad de la aplicación
 # ----------------------------------------------------------------------
 APP_NAME: str = "Sistema AT"
-APP_VERSION: str = "1.1"
+APP_VERSION: str = "3.0"
 APP_ORG: str = "IPD · DINADAF"
 
 # ----------------------------------------------------------------------
@@ -112,6 +112,36 @@ ROLES_FIRMA_ETIQUETAS: dict[str, str] = {
     "presidente_fdn": "Presidente FDN",
 }
 CALIFICACIONES: tuple[str, ...] = ("BUENO", "REGULAR", "MALO")
+
+# ----------------------------------------------------------------------
+# Constantes de dominio — módulos v3.0 (resultados, alimentación, seguro)
+# ----------------------------------------------------------------------
+# Familias deportivas para el Asistente IA: cada familia agrupa deportes
+# afines para que la redacción técnica use la terminología correcta.
+FAMILIAS_DEPORTE: dict[str, tuple[str, ...]] = {
+    "resistencia": ("atletismo", "fondo", "mediofondo", "marcha", "ciclis", "nataci", "remo", "triatl", "carrera", "marat"),
+    "velocidad": ("velocidad", "100", "200", "400", "vallas", "saltos", "bobsleigh"),
+    "fuerza": ("halterofilia", "pesas", "powerlifting", "levantamiento", "lanzamiento", "disco", "bala", "jabalina", "martillo"),
+    "combate": ("boxeo", "judo", "lucha", "taekwondo", "karate", "esgrima", "wushu", "jiu", "muay"),
+    "equipo": ("futbol", "voley", "básquet", "basquet", "rugby", "handball", "hockey", "softbol", "beisbol"),
+    "precisión": ("tiro", "arqueria", "arquería", "bowling", "billar"),
+    "arte": ("gimnasia", "patinaje", "ballet", "natacion artistica", "nado", "sur", "escalada", "badminton", "tenis", "tenis de mesa"),
+}
+
+# Objetivos nutricionales del formato de alimentación.
+OBJETIVOS_NUTRICION: tuple[str, ...] = (
+    "RENDIMIENTO", "HIPERTROFIA", "DESCENSO_PESO", "ASCENSO_PESO", "RECUPERACION",
+)
+
+# Tipos y estados de póliza para el formato de seguro.
+TIPOS_SEGURO: tuple[str, ...] = ("SALUD", "ACCIDENTES_DEPORTIVOS", "VIDA", "OTRO")
+ESTADOS_SEGURO: tuple[str, ...] = ("VIGENTE", "VENCIDO", "EN_TRAMITE", "ANULADO")
+
+# Etiquetas legibles de los bloques de periodización de resultados.
+MESES_BIMESTRE: dict[int, str] = {1: "B1", 2: "B1", 3: "B2", 4: "B2", 5: "B3", 6: "B3",
+                                  7: "B4", 8: "B4", 9: "B5", 10: "B5", 11: "B6", 12: "B6"}
+MESES_TRIMESTRE: dict[int, str] = {1: "T1", 2: "T1", 3: "T1", 4: "T2", 5: "T2", 6: "T2",
+                                   7: "T3", 8: "T3", 9: "T3", 10: "T4", 11: "T4", 12: "T4"}
 MESES: dict[str, str] = {
     "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
     "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",

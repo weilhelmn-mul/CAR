@@ -132,6 +132,63 @@ CREATE TABLE IF NOT EXISTS auditoria_firmas (
 CREATE INDEX IF NOT EXISTS idx_registros_periodo   ON registros_mensuales (periodo);
 CREATE INDEX IF NOT EXISTS idx_consolidados_periodo ON consolidados_at_f1 (periodo);
 CREATE INDEX IF NOT EXISTS idx_planes_periodo      ON planes_jut (periodo);
+
+-- ----------------------------------------------------------------------
+-- Tablas v3.0 — resultados deportivos, alimentación y seguros
+-- ----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS resultados_deportivos (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    deportista_id INTEGER NOT NULL REFERENCES deportistas(id),
+    fecha         TEXT    NOT NULL,                          -- 'YYYY-MM-DD'
+    competencia   TEXT    NOT NULL,
+    lugar         TEXT    DEFAULT '',
+    prueba        TEXT    DEFAULT '',                        -- prueba / estilo / categoría de la competencia
+    marca         TEXT    DEFAULT '',                        -- tiempo, distancia, puntaje o resultado
+    posicion      INTEGER CHECK (posicion IS NULL OR posicion > 0),
+    medalla       TEXT    NOT NULL DEFAULT '' CHECK (medalla IN ('','ORO','PLATA','BRONCE')),
+    puntos        REAL,
+    observaciones TEXT    DEFAULT '',
+    creado_en     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS alimentacion (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    deportista_id     INTEGER NOT NULL REFERENCES deportistas(id),
+    periodo           TEXT    NOT NULL,                     -- 'YYYY-MM'
+    fecha_evaluacion  TEXT    DEFAULT '',                   -- 'YYYY-MM-DD'
+    nutricionista     TEXT    DEFAULT '',
+    peso_kg           REAL,
+    estatura_m        REAL,
+    imc               REAL,
+    pct_grasa_corporal REAL,
+    kcal_dia          REAL,
+    objetivo          TEXT    NOT NULL DEFAULT 'RENDIMIENTO' CHECK (objetivo IN ('RENDIMIENTO','HIPERTROFIA','DESCENSO_PESO','ASCENSO_PESO','RECUPERACION')),
+    plan_alimenticio  TEXT    DEFAULT '',
+    observaciones     TEXT    DEFAULT '',
+    creado_en         TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+    actualizado_en    TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+    UNIQUE (deportista_id, periodo)
+);
+
+CREATE TABLE IF NOT EXISTS seguros (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    deportista_id  INTEGER NOT NULL REFERENCES deportistas(id),
+    aseguradora    TEXT    NOT NULL,
+    tipo_seguro    TEXT    NOT NULL DEFAULT 'SALUD' CHECK (tipo_seguro IN ('SALUD','ACCIDENTES_DEPORTIVOS','VIDA','OTRO')),
+    numero_poliza  TEXT    DEFAULT '',
+    cobertura      TEXT    DEFAULT '',
+    vigencia_inicio TEXT   DEFAULT '',                      -- 'YYYY-MM-DD'
+    vigencia_fin   TEXT    DEFAULT '',                      -- 'YYYY-MM-DD'
+    estado         TEXT    NOT NULL DEFAULT 'VIGENTE' CHECK (estado IN ('VIGENTE','VENCIDO','EN_TRAMITE','ANULADO')),
+    observaciones  TEXT    DEFAULT '',
+    creado_en      TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+    actualizado_en TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_resultados_deportista ON resultados_deportivos (deportista_id, fecha);
+CREATE INDEX IF NOT EXISTS idx_resultados_fecha      ON resultados_deportivos (fecha);
+CREATE INDEX IF NOT EXISTS idx_alimentacion_periodo  ON alimentacion (periodo);
+CREATE INDEX IF NOT EXISTS idx_seguros_estado        ON seguros (estado);
 """
 
 # ----------------------------------------------------------------------
@@ -660,5 +717,410 @@ def ultimos_registros(limite: int = 8) -> list[sqlite3.Row]:
                 ORDER BY r.actualizado_en DESC LIMIT ?
                 """,
                 (limite,),
+            ).fetchall()
+        )
+
+
+# ======================================================================
+# v3.0 — Resultados deportivos (mejores marcas por período)
+# ======================================================================
+def agregar_resultado(datos: dict[str, Any]) -> int:
+    """Registra un resultado deportivo (fecha, competencia, marca, posición…)."""
+    with _conexion() as con:
+        cursor = con.execute(
+            """
+            INSERT INTO resultados_deportivos
+                (deportista_id, fecha, competencia, lugar, prueba, marca,
+                 posicion, medalla, puntos, observaciones)
+            VALUES (:deportista_id, :fecha, :competencia, :lugar, :prueba, :marca,
+                    :posicion, :medalla, :puntos, :observaciones)
+            """,
+            {
+                "deportista_id": datos["deportista_id"],
+                "fecha": datos["fecha"],
+                "competencia": datos["competencia"],
+                "lugar": datos.get("lugar", ""),
+                "prueba": datos.get("prueba", ""),
+                "marca": datos.get("marca", ""),
+                "posicion": datos.get("posicion"),
+                "medalla": datos.get("medalla", ""),
+                "puntos": datos.get("puntos"),
+                "observaciones": datos.get("observaciones", ""),
+            },
+        )
+        return int(cursor.lastrowid or 0)
+
+
+def eliminar_resultado(resultado_id: int) -> None:
+    """Elimina un resultado mal ingresado (los resultados sí admiten borrado)."""
+    with _conexion() as con:
+        con.execute("DELETE FROM resultados_deportivos WHERE id=?", (resultado_id,))
+
+
+def resultados_de(deportista_id: int, limite: int = 0) -> list[sqlite3.Row]:
+    """Historial de resultados de un deportista (más recientes primero)."""
+    sql = "SELECT * FROM resultados_deportivos WHERE deportista_id=? ORDER BY fecha DESC, id DESC"
+    if limite:
+        sql += f" LIMIT {int(limite)}"
+    with _conexion() as con:
+        return list(con.execute(sql, (deportista_id,)).fetchall())
+
+
+def resultados_deporte_car(fecha_desde: str = "", fecha_hasta: str = "") -> list[sqlite3.Row]:
+    """Resultados con datos del deportista, para análisis y top (opcional por rango)."""
+    condiciones, parametros = ["1=1"], []
+    if fecha_desde:
+        condiciones.append("r.fecha >= ?")
+        parametros.append(fecha_desde)
+    if fecha_hasta:
+        condiciones.append("r.fecha <= ?")
+        parametros.append(fecha_hasta)
+    sql = (
+        "SELECT r.*, d.nombre, d.deporte, d.categoria, d.sexo, d.car "
+        "FROM resultados_deportivos r JOIN deportistas d ON d.id = r.deportista_id "
+        "WHERE " + " AND ".join(condiciones) +
+        " ORDER BY r.fecha DESC, COALESCE(r.posicion, 99)"
+    )
+    with _conexion() as con:
+        return list(con.execute(sql, parametros).fetchall())
+
+
+def resumen_mejores_por_periodo(deportista_id: int) -> dict[str, dict[str, dict[str, Any]]]:
+    """Mejor resultado por mes, bimestre, trimestre y año.
+
+    Devuelve {"mes": {"2026-11": mejor}, "bimestre": {"2026 · B3": mejor},
+              "trimestre": {"2026 · T3": mejor}, "anual": {"2026": mejor}}
+    donde `mejor` es el registro con MENOR posición (1° lugar gana; los sin
+    posición se ordenan al final). Las claves de mes usan 'YYYY-MM'; los
+    bloques usan la etiqueta legible 'YYYY · B1…B6' / 'YYYY · T1…T4'.
+    """
+    from src.config import MESES_BIMESTRE, MESES_TRIMESTRE  # import local: evita ciclo
+
+    filas = resultados_de(deportista_id)
+
+    def _clave(fila: sqlite3.Row) -> tuple[int, int]:
+        posicion = int(fila["posicion"]) if fila["posicion"] is not None else 999
+        return (posicion, -int(fila["puntos"] or 0))
+
+    bloques: dict[str, dict[str, dict[str, Any]]] = {
+        "mes": {}, "bimestre": {}, "trimestre": {}, "anual": {},
+    }
+    for fila in filas:
+        fecha = str(fila["fecha"])
+        if len(fecha) < 7:
+            continue
+        anio, mes = fecha[:4], int(fecha[5:7])
+        etiquetas = {
+            "mes": f"{anio}-{mes:02d}",
+            "bimestre": f"{anio} · {MESES_BIMESTRE.get(mes, '?')}",
+            "trimestre": f"{anio} · {MESES_TRIMESTRE.get(mes, '?')}",
+            "anual": anio,
+        }
+        for tipo, etiqueta in etiquetas.items():
+            actual = bloques[tipo].get(etiqueta)
+            if actual is None or _clave(fila) < _clave(actual):
+                bloques[tipo][etiqueta] = fila
+    return bloques
+
+
+# ======================================================================
+# v3.0 — Alimentación (evaluación nutricional mensual)
+# ======================================================================
+def upsert_alimentacion(deportista_id: int, periodo: str, datos: dict[str, Any]) -> int:
+    """Crea o actualiza la evaluación nutricional de (deportista, periodo)."""
+    with _conexion() as con:
+        con.execute(
+            """
+            INSERT INTO alimentacion
+                (deportista_id, periodo, fecha_evaluacion, nutricionista, peso_kg,
+                 estatura_m, imc, pct_grasa_corporal, kcal_dia, objetivo,
+                 plan_alimenticio, observaciones)
+            VALUES (:deportista_id, :periodo, :fecha_evaluacion, :nutricionista, :peso_kg,
+                    :estatura_m, :imc, :pct_grasa_corporal, :kcal_dia, :objetivo,
+                    :plan_alimenticio, :observaciones)
+            ON CONFLICT(deportista_id, periodo) DO UPDATE SET
+                fecha_evaluacion   = excluded.fecha_evaluacion,
+                nutricionista      = excluded.nutricionista,
+                peso_kg            = excluded.peso_kg,
+                estatura_m         = excluded.estatura_m,
+                imc                = excluded.imc,
+                pct_grasa_corporal = excluded.pct_grasa_corporal,
+                kcal_dia           = excluded.kcal_dia,
+                objetivo           = excluded.objetivo,
+                plan_alimenticio   = excluded.plan_alimenticio,
+                observaciones      = excluded.observaciones,
+                actualizado_en     = datetime('now','localtime')
+            """,
+            {
+                "deportista_id": deportista_id, "periodo": periodo,
+                "fecha_evaluacion": datos.get("fecha_evaluacion", ""),
+                "nutricionista": datos.get("nutricionista", ""),
+                "peso_kg": datos.get("peso_kg"),
+                "estatura_m": datos.get("estatura_m"),
+                "imc": datos.get("imc"),
+                "pct_grasa_corporal": datos.get("pct_grasa_corporal"),
+                "kcal_dia": datos.get("kcal_dia"),
+                "objetivo": datos.get("objetivo", "RENDIMIENTO"),
+                "plan_alimenticio": datos.get("plan_alimenticio", ""),
+                "observaciones": datos.get("observaciones", ""),
+            },
+        )
+        fila = con.execute(
+            "SELECT id FROM alimentacion WHERE deportista_id=? AND periodo=?",
+            (deportista_id, periodo),
+        ).fetchone()
+        return int(fila["id"])
+
+
+def obtener_alimentacion(registro_id: int) -> sqlite3.Row | None:
+    """Evaluación nutricional con datos del deportista (JOIN)."""
+    with _conexion() as con:
+        return con.execute(
+            """
+            SELECT a.*, d.nombre, d.deporte, d.categoria, d.sexo, d.car, d.region
+            FROM alimentacion a JOIN deportistas d ON d.id = a.deportista_id
+            WHERE a.id=?
+            """,
+            (registro_id,),
+        ).fetchone()
+
+
+def listar_alimentacion(periodo: str = "") -> list[sqlite3.Row]:
+    """Listado de evaluaciones nutricionales (opcionalmente de un periodo)."""
+    condiciones, parametros = ["1=1"], []
+    if periodo:
+        condiciones.append("a.periodo=?")
+        parametros.append(periodo)
+    sql = (
+        "SELECT a.*, d.nombre, d.categoria, d.deporte FROM alimentacion a "
+        "JOIN deportistas d ON d.id=a.deportista_id WHERE "
+        + " AND ".join(condiciones) + " ORDER BY a.periodo DESC, d.nombre"
+    )
+    with _conexion() as con:
+        return list(con.execute(sql, parametros).fetchall())
+
+
+def actualizar_plan_alimenticio(registro_id: int, texto: str) -> None:
+    """Escribe el plan alimenticio (usado por el Asistente IA)."""
+    with _conexion() as con:
+        con.execute(
+            "UPDATE alimentacion SET plan_alimenticio=?, actualizado_en=datetime('now','localtime') WHERE id=?",
+            (texto, registro_id),
+        )
+
+
+# ----------------------------------------------------------------------
+# v3.0 — Escritura de textos narrativos (Asistente IA → formatos)
+# ----------------------------------------------------------------------
+def actualizar_narrativa_f3(registro_id: int, *, objetivos: str | None = None,
+                            resultados: str | None = None,
+                            evaluacion: str | None = None) -> None:
+    """Actualiza solo los campos narrativos de un registro AT-F3 (no toca cifras)."""
+    asignaciones, valores = [], []
+    for columna, texto in (("objetivos", objetivos), ("resultados", resultados),
+                           ("evaluacion", evaluacion)):
+        if texto is not None:
+            asignaciones.append(f"{columna}=?")
+            valores.append(texto)
+    if not asignaciones:
+        return
+    valores.append(registro_id)
+    with _conexion() as con:
+        con.execute(
+            f"UPDATE registros_mensuales SET {', '.join(asignaciones)}, "
+            "actualizado_en=datetime('now','localtime') WHERE id=?",
+            valores,
+        )
+
+
+def actualizar_narrativa_f1(consolidado_id: int, *, eval_car: str | None = None,
+                            observaciones: str | None = None) -> None:
+    """Actualiza los textos del consolidado AT-F1 (eval CAR y observaciones)."""
+    asignaciones, valores = [], []
+    for columna, texto in (("eval_car", eval_car), ("observaciones", observaciones)):
+        if texto is not None:
+            asignaciones.append(f"{columna}=?")
+            valores.append(texto)
+    if not asignaciones:
+        return
+    valores.append(consolidado_id)
+    with _conexion() as con:
+        con.execute(
+            f"UPDATE consolidados_at_f1 SET {', '.join(asignaciones)}, "
+            "actualizado_en=datetime('now','localtime') WHERE id=?",
+            valores,
+        )
+
+
+def actualizar_narrativa_f9(evaluacion_id: int, *, obs_visita: str | None = None,
+                            opinion_presidente: str | None = None) -> None:
+    """Actualiza los textos de la evaluación AT-F9 (visita y opinión)."""
+    asignaciones, valores = [], []
+    for columna, texto in (("obs_visita", obs_visita),
+                           ("opinion_presidente", opinion_presidente)):
+        if texto is not None:
+            asignaciones.append(f"{columna}=?")
+            valores.append(texto)
+    if not asignaciones:
+        return
+    valores.append(evaluacion_id)
+    with _conexion() as con:
+        con.execute(
+            f"UPDATE evaluaciones_jut SET {', '.join(asignaciones)} WHERE id=?",
+            valores,
+        )
+
+
+# ======================================================================
+# v3.0 — Seguros deportivos
+# ======================================================================
+def upsert_seguro(deportista_id: int, datos: dict[str, Any]) -> int:
+    """Registra o actualiza una póliza de seguro deportivo. Devuelve su id."""
+    with _conexion() as con:
+        if datos.get("id"):
+            con.execute(
+                """
+                UPDATE seguros SET aseguradora=:aseguradora, tipo_seguro=:tipo_seguro,
+                    numero_poliza=:numero_poliza, cobertura=:cobertura,
+                    vigencia_inicio=:vigencia_inicio, vigencia_fin=:vigencia_fin,
+                    estado=:estado, observaciones=:observaciones,
+                    actualizado_en=datetime('now','localtime')
+                WHERE id=:id
+                """,
+                {
+                    "id": int(datos["id"]), "aseguradora": datos.get("aseguradora", ""),
+                    "tipo_seguro": datos.get("tipo_seguro", "SALUD"),
+                    "numero_poliza": datos.get("numero_poliza", ""),
+                    "cobertura": datos.get("cobertura", ""),
+                    "vigencia_inicio": datos.get("vigencia_inicio", ""),
+                    "vigencia_fin": datos.get("vigencia_fin", ""),
+                    "estado": datos.get("estado", "VIGENTE"),
+                    "observaciones": datos.get("observaciones", ""),
+                },
+            )
+            return int(datos["id"])
+        cursor = con.execute(
+            """
+            INSERT INTO seguros (deportista_id, aseguradora, tipo_seguro, numero_poliza,
+                                 cobertura, vigencia_inicio, vigencia_fin, estado, observaciones)
+            VALUES (:deportista_id, :aseguradora, :tipo_seguro, :numero_poliza,
+                    :cobertura, :vigencia_inicio, :vigencia_fin, :estado, :observaciones)
+            """,
+            {
+                "deportista_id": deportista_id,
+                "aseguradora": datos.get("aseguradora", ""),
+                "tipo_seguro": datos.get("tipo_seguro", "SALUD"),
+                "numero_poliza": datos.get("numero_poliza", ""),
+                "cobertura": datos.get("cobertura", ""),
+                "vigencia_inicio": datos.get("vigencia_inicio", ""),
+                "vigencia_fin": datos.get("vigencia_fin", ""),
+                "estado": datos.get("estado", "VIGENTE"),
+                "observaciones": datos.get("observaciones", ""),
+            },
+        )
+        return int(cursor.lastrowid or 0)
+
+
+def obtener_seguro(seguro_id: int) -> sqlite3.Row | None:
+    """Póliza con datos del deportista (JOIN)."""
+    with _conexion() as con:
+        return con.execute(
+            """
+            SELECT s.*, d.nombre, d.documento, d.deporte, d.categoria, d.sexo, d.car
+            FROM seguros s JOIN deportistas d ON d.id = s.deportista_id
+            WHERE s.id=?
+            """,
+            (seguro_id,),
+        ).fetchone()
+
+
+def listar_seguros(estado: str = "") -> list[sqlite3.Row]:
+    """Listado de pólizas (opcionalmente filtradas por estado)."""
+    condiciones, parametros = ["1=1"], []
+    if estado:
+        condiciones.append("s.estado=?")
+        parametros.append(estado)
+    sql = (
+        "SELECT s.*, d.nombre, d.categoria, d.deporte FROM seguros s "
+        "JOIN deportistas d ON d.id=s.deportista_id WHERE "
+        + " AND ".join(condiciones) +
+        " ORDER BY CASE s.estado WHEN 'VIGENTE' THEN 0 WHEN 'EN_TRAMITE' THEN 1 "
+        "WHEN 'VENCIDO' THEN 2 ELSE 3 END, d.nombre"
+    )
+    with _conexion() as con:
+        return list(con.execute(sql, parametros).fetchall())
+
+
+def resumen_seguros() -> dict[str, int]:
+    """Conteo de pólizas por estado (para análisis y panel)."""
+    with _conexion() as con:
+        filas = con.execute("SELECT estado, COUNT(*) AS n FROM seguros GROUP BY estado").fetchall()
+    conteo = {estado: 0 for estado in ("VIGENTE", "VENCIDO", "EN_TRAMITE", "ANULADO")}
+    for fila in filas:
+        conteo[fila["estado"]] = int(fila["n"])
+    return conteo
+
+
+# ======================================================================
+# v3.0 — Estadísticas para Análisis Deportivo y panel
+# ======================================================================
+def distribucion(columna: str, solo_activos: bool = True) -> list[sqlite3.Row]:
+    """Cuenta deportistas agrupados por una columna ('sexo','categoria','deporte')."""
+    if columna not in ("sexo", "categoria", "deporte", "car"):
+        raise ValueError(f"Columna no permitida: {columna}")
+    where = "WHERE activo=1" if solo_activos else ""
+    with _conexion() as con:
+        return list(
+            con.execute(
+                f"SELECT {columna} AS clave, COUNT(*) AS n FROM deportistas {where} "
+                f"GROUP BY {columna} ORDER BY n DESC",
+            ).fetchall()
+        )
+
+
+def matricula_por_categoria_sexo() -> list[sqlite3.Row]:
+    """Matrícula activa cruzando categoría y sexo (D/V)."""
+    with _conexion() as con:
+        return list(
+            con.execute(
+                """
+                SELECT categoria,
+                       SUM(CASE WHEN sexo='D' THEN 1 ELSE 0 END) AS damas,
+                       SUM(CASE WHEN sexo='V' THEN 1 ELSE 0 END) AS varones,
+                       COUNT(*) AS total
+                FROM deportistas WHERE activo=1
+                GROUP BY categoria
+                """
+            ).fetchall()
+        )
+
+
+def promedios_por_periodo(limite: int = 6) -> list[sqlite3.Row]:
+    """Promedios de asistencia/cumplimiento de los últimos N periodos con datos."""
+    with _conexion() as con:
+        return list(
+            con.execute(
+                """
+                SELECT periodo, AVG(pct_asistencia) AS asistencia,
+                       AVG(pct_cumplimiento) AS cumplimiento, COUNT(*) AS registros
+                FROM registros_mensuales
+                GROUP BY periodo ORDER BY periodo DESC LIMIT ?
+                """,
+                (int(limite),),
+            ).fetchall()
+        )
+
+
+def imc_promedio_por_categoria() -> list[sqlite3.Row]:
+    """IMC promedio de las evaluaciones de alimentación por categoría."""
+    with _conexion() as con:
+        return list(
+            con.execute(
+                """
+                SELECT d.categoria AS clave, AVG(a.imc) AS imc_prom, COUNT(*) AS n
+                FROM alimentacion a JOIN deportistas d ON d.id=a.deportista_id
+                WHERE a.imc IS NOT NULL
+                GROUP BY d.categoria ORDER BY d.categoria
+                """
             ).fetchall()
         )

@@ -1,0 +1,31 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# ---- Datos locales del sistema (nunca al repositorio) ----
+data/
+Data/
+Data_Backups/
+*.db
+*.db-wal
+*.db-shm
+*.log
+config_ia.json        # clave de API del Asistente IA (solo local)
+
+# ---- Compilación ----
+build/
+dist/
+*.spec.bak
+output/
+
+# ---- Sistema / editor ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
