@@ -1,14 +1,16 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Pencil, Trash2, UserSearch } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Plus, Pencil, Trash2, UserSearch, Filter, Columns3, X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { api, useDeportistas, nombreCompletoUI, estadoAval, type Deportista, BadgeCat } from './ui-at'
+import { api, useDeportistas, nombreCompletoUI, estadoAval, calcularEdad, type Deportista, BadgeCat } from './ui-at'
 import { CATEGORIAS, NIVELES, MODALIDADES, DEPORTES, SEXOS, fmtFecha } from '@/lib/periodos'
 import Ficha360 from './ficha'
 
@@ -20,27 +22,154 @@ const vacio = {
 }
 type FormDep = typeof vacio
 
+// ====== VARIABLES (COLUMNAS) QUE EL USUARIO PUEDE MOSTRAR U OCULTAR ======
+type ColKey =
+  | 'dni' | 'edad' | 'fechaNacimiento' | 'categoria' | 'sexo' | 'deporte' | 'nivelTecnico'
+  | 'modalidad' | 'ingreso' | 'continuidad' | 'aval' | 'pad' | 'procedencia' | 'telefono' | 'entrenador' | 'estado'
+
+const COLUMNAS: { key: ColKey; etiqueta: string; porDefecto: boolean }[] = [
+  { key: 'dni', etiqueta: 'DNI', porDefecto: true },
+  { key: 'edad', etiqueta: 'Edad', porDefecto: true },
+  { key: 'fechaNacimiento', etiqueta: 'F. nacimiento', porDefecto: false },
+  { key: 'categoria', etiqueta: 'Categoría', porDefecto: true },
+  { key: 'sexo', etiqueta: 'Sexo', porDefecto: true },
+  { key: 'deporte', etiqueta: 'Deporte / prueba', porDefecto: true },
+  { key: 'nivelTecnico', etiqueta: 'Nivel técnico', porDefecto: false },
+  { key: 'modalidad', etiqueta: 'Modalidad', porDefecto: true },
+  { key: 'ingreso', etiqueta: 'Ingreso', porDefecto: true },
+  { key: 'continuidad', etiqueta: 'Vence continuidad', porDefecto: true },
+  { key: 'aval', etiqueta: 'Aval médico', porDefecto: true },
+  { key: 'pad', etiqueta: 'PAD', porDefecto: true },
+  { key: 'procedencia', etiqueta: 'Procedencia', porDefecto: false },
+  { key: 'telefono', etiqueta: 'Teléfono', porDefecto: false },
+  { key: 'entrenador', etiqueta: 'Entrenador', porDefecto: true },
+  { key: 'estado', etiqueta: 'Estado', porDefecto: false },
+]
+
+const LS_COLUMNAS = 'at-deportistas-columnas'
+const ETIQUETA_EXTRA: Record<string, string> = { nombres: 'Apellidos y nombres' }
+const etiquetaDe = (k: string) => COLUMNAS.find((c) => c.key === k)?.etiqueta ?? ETIQUETA_EXTRA[k] ?? k
+
 export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha: number | null; setDepIdFicha: (v: number | null) => void }) {
   const { lista, cargando, recargar } = useDeportistas()
   const [q, setQ] = useState('')
   const [fCategoria, setFCategoria] = useState('todas')
   const [fSexo, setFSexo] = useState('todos')
   const [fModalidad, setFModalidad] = useState('todas')
+  // Filtros avanzados
+  const [verFiltros, setVerFiltros] = useState(false)
+  const [fDeporte, setFDeporte] = useState('todos')
+  const [fNivel, setFNivel] = useState('todos')
+  const [fPad, setFPad] = useState('todos') // todos | si | no
+  const [fAval, setFAval] = useState('todos') // todos | VIGENTE | POR VENCER | EXPIRADO | SIN REGISTRO
+  const [fEstado, setFEstado] = useState('todos') // todos | activos | retirados
+  const [edadMin, setEdadMin] = useState('')
+  const [edadMax, setEdadMax] = useState('')
+  // Ordenamiento
+  const [orden, setOrden] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
+  // Columnas visibles (elección del usuario, persistente)
+  const [visibles, setVisibles] = useState<Set<ColKey>>(new Set(COLUMNAS.filter((c) => c.porDefecto).map((c) => c.key)))
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_COLUMNAS)
+      if (raw) {
+        const arr = JSON.parse(raw) as ColKey[]
+        setVisibles(new Set(COLUMNAS.filter((c) => arr.includes(c.key)).map((c) => c.key)))
+      }
+    } catch { /* usa valores por defecto */ }
+  }, [])
+  const toggleColumna = (k: ColKey, activo: boolean) => {
+    setVisibles((prev) => {
+      const nx = new Set(prev)
+      if (activo) nx.add(k); else nx.delete(k)
+      try { localStorage.setItem(LS_COLUMNAS, JSON.stringify([...nx])) } catch { /* sin persistencia */ }
+      return nx
+    })
+  }
+  const restaurarColumnas = () => {
+    const base = new Set(COLUMNAS.filter((c) => c.porDefecto).map((c) => c.key))
+    setVisibles(base)
+    try { localStorage.setItem(LS_COLUMNAS, JSON.stringify([...base])) } catch { /* sin persistencia */ }
+  }
+
   const [dialogo, setDialogo] = useState(false)
   const [editando, setEditando] = useState<Deportista | null>(null)
   const [form, setForm] = useState<FormDep>(vacio)
   const [guardando, setGuardando] = useState(false)
 
+  const cambiarOrden = (key: string) =>
+    setOrden((o) => (o?.key === key ? (o.dir === 'asc' ? { key, dir: 'desc' } : null) : { key, dir: 'asc' }))
+
+  const valorOrden = (d: Deportista, key: string): string | number => {
+    switch (key) {
+      case 'nombres': return nombreCompletoUI(d).toLowerCase()
+      case 'dni': return d.dni
+      case 'edad': return calcularEdad(d.fechaNacimiento) ?? -1
+      case 'fechaNacimiento': return d.fechaNacimiento?.slice(0, 10) ?? ''
+      case 'categoria': return d.categoria
+      case 'sexo': return d.sexo
+      case 'deporte': return d.deporte
+      case 'nivelTecnico': return d.nivelTecnico
+      case 'modalidad': return d.modalidad
+      case 'ingreso': return d.fechaIngreso?.slice(0, 10) ?? ''
+      case 'continuidad': return d.fechaVencimientoContinuidad?.slice(0, 10) ?? ''
+      case 'aval': return d.fechaCaducidadAval?.slice(0, 10) ?? ''
+      case 'pad': return d.pad ? 1 : 0
+      case 'procedencia': return d.procedencia
+      case 'telefono': return d.telefono ?? ''
+      case 'entrenador': return d.entrenador ?? ''
+      case 'estado': return d.retirado ? 1 : 0
+      default: return ''
+    }
+  }
+
   const filtrados = useMemo(() => {
     const t = q.trim().toLowerCase()
-    return lista.filter((d) => {
+    const min = edadMin === '' ? null : Number(edadMin)
+    const max = edadMax === '' ? null : Number(edadMax)
+    let f = lista.filter((d) => {
       if (t && !`${d.apellidoPaterno} ${d.apellidoMaterno} ${d.nombres} ${d.dni}`.toLowerCase().includes(t)) return false
       if (fCategoria !== 'todas' && d.categoria !== fCategoria) return false
       if (fSexo !== 'todos' && d.sexo !== fSexo) return false
       if (fModalidad !== 'todas' && d.modalidad !== fModalidad) return false
+      if (fDeporte !== 'todos' && d.deporte !== fDeporte) return false
+      if (fNivel !== 'todos' && d.nivelTecnico !== fNivel) return false
+      if (fPad === 'si' && !d.pad) return false
+      if (fPad === 'no' && d.pad) return false
+      if (fAval !== 'todos' && estadoAval(d.fechaCaducidadAval).texto !== fAval) return false
+      if (fEstado === 'activos' && d.retirado) return false
+      if (fEstado === 'retirados' && !d.retirado) return false
+      const e = calcularEdad(d.fechaNacimiento)
+      if (min !== null && !isNaN(min) && (e === null || e < min)) return false
+      if (max !== null && !isNaN(max) && (e === null || e > max)) return false
       return true
     })
-  }, [lista, q, fCategoria, fSexo, fModalidad])
+    if (orden) {
+      const { key, dir } = orden
+      const s = dir === 'asc' ? 1 : -1
+      f = [...f].sort((a, b) => {
+        const va = valorOrden(a, key), vb = valorOrden(b, key)
+        const vacioA = va === '' || va === -1, vacioB = vb === '' || vb === -1
+        if (vacioA && vacioB) return 0
+        if (vacioA) return 1 // vacíos al final siempre
+        if (vacioB) return -1
+        if (va < vb) return -1 * s
+        if (va > vb) return 1 * s
+        return 0
+      })
+    }
+    return f
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lista, q, fCategoria, fSexo, fModalidad, fDeporte, fNivel, fPad, fAval, fEstado, edadMin, edadMax, orden])
+
+  const numFiltros = [q, fCategoria, fSexo, fModalidad, fDeporte, fNivel, fPad, fAval, fEstado, edadMin, edadMax]
+    .filter((v) => v !== '' && v !== 'todos' && v !== 'todas').length
+
+  const limpiarFiltros = () => {
+    setQ(''); setFCategoria('todas'); setFSexo('todos'); setFModalidad('todas')
+    setFDeporte('todos'); setFNivel('todos'); setFPad('todos'); setFAval('todos'); setFEstado('todos')
+    setEdadMin(''); setEdadMax(''); setOrden(null)
+  }
 
   const abrirNuevo = () => { setEditando(null); setForm(vacio); setDialogo(true) }
   const abrirEdicion = (d: Deportista) => {
@@ -91,10 +220,59 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
 
   const set = (k: keyof FormDep, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }))
 
+  const visiblesList = COLUMNAS.filter((c) => visibles.has(c.key))
+  const colSpan = 3 + visiblesList.length
+  const thOrden = (key: string, label: string, className = 'text-red-900') => (
+    <TableHead className={className}>
+      <button type="button" className="inline-flex items-center gap-1 font-medium hover:underline" onClick={() => cambiarOrden(key)}>
+        {label}
+        {orden?.key === key
+          ? (orden.dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)
+          : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+      </button>
+    </TableHead>
+  )
+  const celda = (d: Deportista, key: ColKey) => {
+    switch (key) {
+      case 'dni': return <span className="text-sm">{d.dni}</span>
+      case 'edad': {
+        const e = calcularEdad(d.fechaNacimiento)
+        return <span className="text-sm font-semibold text-slate-700">{e !== null ? e : '—'}</span>
+      }
+      case 'fechaNacimiento': return <span className="text-sm">{fmtFecha(d.fechaNacimiento) || '—'}</span>
+      case 'categoria': return <BadgeCat>{d.categoria}</BadgeCat>
+      case 'sexo': return <span className="text-sm">{d.sexo === 'FEMENINO' ? 'F' : 'M'}</span>
+      case 'deporte': return <span className="text-sm">{d.deporte}<span className="block text-xs text-slate-500">{d.prueba ?? '—'}</span></span>
+      case 'nivelTecnico': return <span className="text-sm">{d.nivelTecnico}</span>
+      case 'modalidad': return <span className="text-sm">{d.modalidad}</span>
+      case 'ingreso': return <span className="text-sm">{fmtFecha(d.fechaIngreso) || '—'}</span>
+      case 'continuidad': return (
+        <span className={`text-sm ${d.fechaVencimientoContinuidad ? 'text-slate-700' : 'text-slate-400'}`}>{fmtFecha(d.fechaVencimientoContinuidad) || '—'}</span>
+      )
+      case 'aval': return (
+        <span>
+          <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${estadoAval(d.fechaCaducidadAval).clase}`}>
+            {estadoAval(d.fechaCaducidadAval).texto}
+          </span>
+          {d.fechaCaducidadAval && <span className="block text-xs text-slate-500">{fmtFecha(d.fechaCaducidadAval)}</span>}
+        </span>
+      )
+      case 'pad': return <span className={`text-sm font-semibold ${d.pad ? 'text-green-700' : 'text-slate-400'}`}>{d.pad ? 'SI' : 'NO'}</span>
+      case 'procedencia': return <span className="text-sm">{d.procedencia}</span>
+      case 'telefono': return <span className="text-sm">{d.telefono ?? '—'}</span>
+      case 'entrenador': return <span className="text-sm text-slate-600">{d.entrenador ?? '—'}</span>
+      case 'estado': return d.retirado
+        ? <span className="text-xs font-bold text-slate-500">RETIRADO</span>
+        : <span className="text-xs font-bold text-green-700">ACTIVO</span>
+      default: return null
+    }
+  }
+  const edadForm = calcularEdad(form.fechaNacimiento)
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-52">
+        <div className="relative min-w-52 flex-1">
           <UserSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
           <Input placeholder="Buscar por apellido o DNI…" className="pl-8" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -103,14 +281,101 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
           <SelectContent>{['todas', ...CATEGORIAS].map((c) => <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={fSexo} onValueChange={setFSexo}>
-          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
           <SelectContent>{['todos', ...SEXOS].map((c) => <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={fModalidad} onValueChange={setFModalidad}>
           <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
           <SelectContent>{['todas', ...MODALIDADES].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
+        <Button variant={verFiltros ? 'default' : 'outline'} className={verFiltros ? 'bg-red-800 hover:bg-red-900' : 'border-red-800 text-red-900 hover:bg-red-50'} onClick={() => setVerFiltros((v) => !v)}>
+          <Filter className="h-4 w-4" /> Filtros
+          {numFiltros > 0 && <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-800 px-1 text-[11px] font-bold text-white">{numFiltros}</span>}
+        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="border-red-800 text-red-900 hover:bg-red-50">
+              <Columns3 className="h-4 w-4" /> Columnas
+              <span className="ml-1 text-xs text-slate-500">{visiblesList.length}/{COLUMNAS.length}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64" align="end">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Variables a visualizar</p>
+              <button type="button" className="text-xs font-medium text-red-800 hover:underline" onClick={restaurarColumnas}>Restaurar</button>
+            </div>
+            <div className="grid max-h-72 gap-1 overflow-y-auto pr-1">
+              {COLUMNAS.map((c) => (
+                <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-slate-700 hover:bg-slate-50">
+                  <Checkbox checked={visibles.has(c.key)} onCheckedChange={(v) => toggleColumna(c.key, v === true)} className="accent-red-800" />
+                  {c.etiqueta}
+                </label>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
         <Button className="bg-red-800 hover:bg-red-900" onClick={abrirNuevo}><Plus className="h-4 w-4" /> Nuevo</Button>
+      </div>
+
+      {verFiltros && (
+        <div className="rounded-xl border bg-white p-3 shadow-sm">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Deporte
+              <Select value={fDeporte} onValueChange={setFDeporte}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{['todos', ...DEPORTES].map((c) => <SelectItem key={c} value={c}>{c === 'todos' ? 'TODOS' : c}</SelectItem>)}</SelectContent>
+              </Select>
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Nivel técnico
+              <Select value={fNivel} onValueChange={setFNivel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{['todos', ...NIVELES].map((c) => <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>)}</SelectContent>
+              </Select>
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Seguro PAD
+              <Select value={fPad} onValueChange={setFPad}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">TODOS</SelectItem>
+                  <SelectItem value="si">CON PAD</SelectItem>
+                  <SelectItem value="no">SIN PAD</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Aval médico
+              <Select value={fAval} onValueChange={setFAval}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {['todos', 'VIGENTE', 'POR VENCER', 'EXPIRADO', 'SIN REGISTRO'].map((c) => <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Estado
+              <Select value={fEstado} onValueChange={setFEstado}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">TODOS</SelectItem>
+                  <SelectItem value="activos">ACTIVOS</SelectItem>
+                  <SelectItem value="retirados">RETIRADOS</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Edad mínima
+              <Input type="number" min={0} max={80} placeholder="Ej. 15" value={edadMin} onChange={(e) => setEdadMin(e.target.value)} />
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Edad máxima
+              <Input type="number" min={0} max={80} placeholder="Ej. 23" value={edadMax} onChange={(e) => setEdadMax(e.target.value)} />
+            </label>
+            <div className="flex items-end justify-end">
+              <Button size="sm" variant="ghost" className="text-slate-500" onClick={limpiarFiltros}><X className="h-4 w-4" /> Limpiar filtros</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>Mostrando <b className="text-slate-700">{filtrados.length}</b> de {lista.length} deportistas</span>
+        {orden && <span>Ordenado por <b className="text-slate-700">{etiquetaDe(orden.key)}</b> ({orden.dir === 'asc' ? 'ascendente' : 'descendente'})</span>}
       </div>
 
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
@@ -118,42 +383,19 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
           <TableHeader>
             <TableRow className="bg-red-50">
               <TableHead className="w-8 text-red-900">N°</TableHead>
-              <TableHead className="text-red-900">Apellidos y nombres</TableHead>
-              <TableHead className="text-red-900">DNI</TableHead>
-              <TableHead className="text-red-900">Categoría</TableHead>
-              <TableHead className="text-red-900">Sexo</TableHead>
-              <TableHead className="text-red-900">Deporte / prueba</TableHead>
-              <TableHead className="text-red-900">Modalidad</TableHead>
-              <TableHead className="text-red-900">Ingreso</TableHead>
-              <TableHead className="text-red-900">Vence continuidad</TableHead>
-              <TableHead className="text-red-900">Aval médico</TableHead>
-              <TableHead className="text-red-900">PAD</TableHead>
-              <TableHead className="text-red-900">Entrenador</TableHead>
+              {thOrden('nombres', 'Apellidos y nombres')}
+              {visiblesList.map((c) => thOrden(c.key, c.etiqueta))}
               <TableHead className="text-right text-red-900">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cargando && <TableRow><TableCell colSpan={12} className="py-8 text-center text-slate-500">Cargando…</TableCell></TableRow>}
-            {!cargando && filtrados.length === 0 && <TableRow><TableCell colSpan={12} className="py-8 text-center text-slate-500">Sin resultados</TableCell></TableRow>}
+            {cargando && <TableRow><TableCell colSpan={colSpan} className="py-8 text-center text-slate-500">Cargando…</TableCell></TableRow>}
+            {!cargando && filtrados.length === 0 && <TableRow><TableCell colSpan={colSpan} className="py-8 text-center text-slate-500">Sin resultados</TableCell></TableRow>}
             {filtrados.map((d, i) => (
               <TableRow key={d.id} className={d.retirado ? 'opacity-50' : ''}>
                 <TableCell className="text-xs text-slate-500">{i + 1}</TableCell>
                 <TableCell className="font-medium">{nombreCompletoUI(d)}</TableCell>
-                <TableCell className="text-sm">{d.dni}</TableCell>
-                <TableCell><BadgeCat>{d.categoria}</BadgeCat></TableCell>
-                <TableCell className="text-sm">{d.sexo === 'FEMENINO' ? 'F' : 'M'}</TableCell>
-                <TableCell className="text-sm">{d.deporte}<span className="block text-xs text-slate-500">{d.prueba ?? '—'}</span></TableCell>
-                <TableCell className="text-sm">{d.modalidad}</TableCell>
-                <TableCell className="text-sm">{fmtFecha(d.fechaIngreso)}</TableCell>
-                <TableCell className={`text-sm ${d.fechaVencimientoContinuidad ? 'text-slate-700' : 'text-slate-400'}`}>{fmtFecha(d.fechaVencimientoContinuidad) || '—'}</TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${estadoAval(d.fechaCaducidadAval).clase}`}>
-                    {estadoAval(d.fechaCaducidadAval).texto}
-                  </span>
-                  {d.fechaCaducidadAval && <span className="block text-xs text-slate-500">{fmtFecha(d.fechaCaducidadAval)}</span>}
-                </TableCell>
-                <TableCell className={`text-sm font-semibold ${d.pad ? 'text-green-700' : 'text-slate-400'}`}>{d.pad ? 'SI' : 'NO'}</TableCell>
-                <TableCell className="text-sm text-slate-600">{d.entrenador ?? '—'}</TableCell>
+                {visiblesList.map((c) => <TableCell key={c.key}>{celda(d, c.key)}</TableCell>)}
                 <TableCell className="text-right">
                   <Button size="sm" variant="ghost" className="text-red-900" onClick={() => setDepIdFicha(d.id)}>Ficha 360°</Button>
                   <Button size="sm" variant="ghost" onClick={() => abrirEdicion(d)}><Pencil className="h-4 w-4" /></Button>
@@ -173,7 +415,7 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
           <div className="grid gap-3 sm:grid-cols-3">
             {([['apellidoPaterno', 'Apellido paterno', 'text'], ['apellidoMaterno', 'Apellido materno', 'text'], ['nombres', 'Nombres', 'text'], ['dni', 'DNI', 'text'], ['fechaNacimiento', 'Fecha de nacimiento', 'date'], ['fechaIngreso', 'Fecha de ingreso', 'date'], ['fechaVencimientoContinuidad', 'Vencimiento de continuidad', 'date'], ['fechaCaducidadAval', 'Caducidad del aval médico', 'date'], ['prueba', 'Prueba (ej. 800 m)', 'text'], ['telefono', 'Teléfono', 'text'], ['entrenador', 'Entrenador', 'text']] as const).map(([k, lbl, tp]) => (
               <label key={k} className="grid gap-1 text-xs font-medium text-slate-600">
-                {lbl}
+                {lbl}{k === 'fechaNacimiento' && edadForm !== null ? ` (Edad: ${edadForm} años)` : ''}
                 <Input type={tp} value={String(form[k] ?? '')} onChange={(e) => set(k, e.target.value)} />
               </label>
             ))}

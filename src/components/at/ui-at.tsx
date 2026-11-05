@@ -139,6 +139,18 @@ export function estadoAval(fechaCaducidad: string | null | undefined): { texto: 
   return { texto: 'VIGENTE', clase: 'bg-green-100 text-green-800' }
 }
 
+// Edad calculada a partir de la fecha de nacimiento (años cumplidos)
+export function calcularEdad(fechaNacimiento: string | Date | null | undefined): number | null {
+  if (!fechaNacimiento) return null
+  const n = new Date(fechaNacimiento)
+  if (isNaN(n.getTime())) return null
+  const hoy = new Date()
+  let e = hoy.getFullYear() - n.getFullYear()
+  const m = hoy.getMonth() - n.getMonth()
+  if (m < 0 || (m === 0 && hoy.getDate() < n.getDate())) e--
+  return e
+}
+
 export function useDeportistas() {
   const [lista, setLista] = useState<Deportista[]>([])
   const [cargando, setCargando] = useState(true)
