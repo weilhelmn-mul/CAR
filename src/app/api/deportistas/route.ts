@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
         telefono: b.telefono ? String(b.telefono) : null, procedencia: b.procedencia ?? 'CUSCO',
         categoria: b.categoria ?? 'MAY', pad: !!b.pad, entrenador: b.entrenador ?? null,
         prueba: b.prueba ?? null, orden: b.orden ?? 99,
+        fechaVencimientoContinuidad: b.fechaVencimientoContinuidad ? new Date(b.fechaVencimientoContinuidad) : null,
+        fechaCaducidadAval: b.fechaCaducidadAval ? new Date(b.fechaCaducidadAval) : null,
       },
     })
     return NextResponse.json(nuevo)

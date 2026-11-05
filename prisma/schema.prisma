@@ -29,6 +29,9 @@ model Deportista {
   prueba          String?
   activo          Boolean     @default(true)
   retirado        Boolean     @default(false)
+  // Continuidad en el CAR y aval médico
+  fechaVencimientoContinuidad DateTime?
+  fechaCaducidadAval          DateTime?
   resultados      Resultado[]
   alimentaciones  Alimentacion[]
   informesF3      FormatoF3[]

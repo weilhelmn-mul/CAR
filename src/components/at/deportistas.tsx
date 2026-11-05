@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Plus, Pencil, Trash2, UserSearch } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { api, useDeportistas, nombreCompletoUI, type Deportista, BadgeCat } from './ui-at'
+import { api, useDeportistas, nombreCompletoUI, estadoAval, type Deportista, BadgeCat } from './ui-at'
 import { CATEGORIAS, NIVELES, MODALIDADES, DEPORTES, SEXOS, fmtFecha } from '@/lib/periodos'
 import Ficha360 from './ficha'
 
@@ -16,7 +16,7 @@ const vacio = {
   apellidoPaterno: '', apellidoMaterno: '', nombres: '', dni: '', sexo: 'MASCULINO',
   fechaNacimiento: '', fechaIngreso: '', deporte: 'ATLETISMO', prueba: '', nivelTecnico: 'DC',
   modalidad: 'INTERNO', categoria: 'U-18', telefono: '', procedencia: '', pad: false,
-  entrenador: '', activo: true, retirado: false,
+  entrenador: '', activo: true, retirado: false, fechaVencimientoContinuidad: '', fechaCaducidadAval: '',
 }
 type FormDep = typeof vacio
 
@@ -51,6 +51,8 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
       deporte: d.deporte, prueba: d.prueba ?? '', nivelTecnico: d.nivelTecnico, modalidad: d.modalidad,
       categoria: d.categoria, telefono: d.telefono ?? '', procedencia: d.procedencia, pad: d.pad,
       entrenador: d.entrenador ?? '', activo: d.activo, retirado: d.retirado,
+      fechaVencimientoContinuidad: d.fechaVencimientoContinuidad?.slice(0, 10) ?? '',
+      fechaCaducidadAval: d.fechaCaducidadAval?.slice(0, 10) ?? '',
     })
     setDialogo(true)
   }
@@ -122,14 +124,17 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
               <TableHead className="text-red-900">Sexo</TableHead>
               <TableHead className="text-red-900">Deporte / prueba</TableHead>
               <TableHead className="text-red-900">Modalidad</TableHead>
+              <TableHead className="text-red-900">Ingreso</TableHead>
+              <TableHead className="text-red-900">Vence continuidad</TableHead>
+              <TableHead className="text-red-900">Aval médico</TableHead>
               <TableHead className="text-red-900">PAD</TableHead>
               <TableHead className="text-red-900">Entrenador</TableHead>
               <TableHead className="text-right text-red-900">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cargando && <TableRow><TableCell colSpan={10} className="py-8 text-center text-slate-500">Cargando…</TableCell></TableRow>}
-            {!cargando && filtrados.length === 0 && <TableRow><TableCell colSpan={10} className="py-8 text-center text-slate-500">Sin resultados</TableCell></TableRow>}
+            {cargando && <TableRow><TableCell colSpan={12} className="py-8 text-center text-slate-500">Cargando…</TableCell></TableRow>}
+            {!cargando && filtrados.length === 0 && <TableRow><TableCell colSpan={12} className="py-8 text-center text-slate-500">Sin resultados</TableCell></TableRow>}
             {filtrados.map((d, i) => (
               <TableRow key={d.id} className={d.retirado ? 'opacity-50' : ''}>
                 <TableCell className="text-xs text-slate-500">{i + 1}</TableCell>
@@ -139,6 +144,14 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
                 <TableCell className="text-sm">{d.sexo === 'FEMENINO' ? 'F' : 'M'}</TableCell>
                 <TableCell className="text-sm">{d.deporte}<span className="block text-xs text-slate-500">{d.prueba ?? '—'}</span></TableCell>
                 <TableCell className="text-sm">{d.modalidad}</TableCell>
+                <TableCell className="text-sm">{fmtFecha(d.fechaIngreso)}</TableCell>
+                <TableCell className={`text-sm ${d.fechaVencimientoContinuidad ? 'text-slate-700' : 'text-slate-400'}`}>{fmtFecha(d.fechaVencimientoContinuidad) || '—'}</TableCell>
+                <TableCell>
+                  <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${estadoAval(d.fechaCaducidadAval).clase}`}>
+                    {estadoAval(d.fechaCaducidadAval).texto}
+                  </span>
+                  {d.fechaCaducidadAval && <span className="block text-xs text-slate-500">{fmtFecha(d.fechaCaducidadAval)}</span>}
+                </TableCell>
                 <TableCell className={`text-sm font-semibold ${d.pad ? 'text-green-700' : 'text-slate-400'}`}>{d.pad ? 'SI' : 'NO'}</TableCell>
                 <TableCell className="text-sm text-slate-600">{d.entrenador ?? '—'}</TableCell>
                 <TableCell className="text-right">
@@ -158,7 +171,7 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
             <DialogTitle>{editando ? `Editar: ${nombreCompletoUI(editando)}` : 'Nuevo deportista'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-3">
-            {([['apellidoPaterno', 'Apellido paterno', 'text'], ['apellidoMaterno', 'Apellido materno', 'text'], ['nombres', 'Nombres', 'text'], ['dni', 'DNI', 'text'], ['fechaNacimiento', 'Fecha de nacimiento', 'date'], ['fechaIngreso', 'Fecha de ingreso', 'date'], ['prueba', 'Prueba (ej. 800 m)', 'text'], ['telefono', 'Teléfono', 'text'], ['entrenador', 'Entrenador', 'text']] as const).map(([k, lbl, tp]) => (
+            {([['apellidoPaterno', 'Apellido paterno', 'text'], ['apellidoMaterno', 'Apellido materno', 'text'], ['nombres', 'Nombres', 'text'], ['dni', 'DNI', 'text'], ['fechaNacimiento', 'Fecha de nacimiento', 'date'], ['fechaIngreso', 'Fecha de ingreso', 'date'], ['fechaVencimientoContinuidad', 'Vencimiento de continuidad', 'date'], ['fechaCaducidadAval', 'Caducidad del aval médico', 'date'], ['prueba', 'Prueba (ej. 800 m)', 'text'], ['telefono', 'Teléfono', 'text'], ['entrenador', 'Entrenador', 'text']] as const).map(([k, lbl, tp]) => (
               <label key={k} className="grid gap-1 text-xs font-medium text-slate-600">
                 {lbl}
                 <Input type={tp} value={String(form[k] ?? '')} onChange={(e) => set(k, e.target.value)} />

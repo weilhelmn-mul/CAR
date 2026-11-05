@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Plus, Trash2, Copy, Utensils, Trophy, CalendarDays } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { api, BotonesExportar, BotonIA, TituloSeccion, BadgeCat } from './ui-at'
+import { api, BotonesExportar, BotonIA, TituloSeccion, BadgeCat, estadoAval } from './ui-at'
 import { fmtFecha } from '@/lib/periodos'
 
 type Dep = {
@@ -16,6 +16,7 @@ type Dep = {
   fechaNacimiento: string; fechaIngreso: string | null; deporte: string; nivelTecnico: string; modalidad: string
   telefono: string | null; procedencia: string; categoria: string; pad: boolean; entrenador: string | null
   prueba: string | null; activo: boolean; retirado: boolean
+  fechaVencimientoContinuidad: string | null; fechaCaducidadAval: string | null
   resultados: { id: number; fecha: string; competencia: string; prueba: string; marca: string; marcaValor: number; unidad: string; puesto: number | null; sede: string | null; nivel: string | null }[]
   alimentaciones: { id: number; periodo: string; incluido: boolean; observaciones: string | null }[]
 }
@@ -92,7 +93,10 @@ export default function Ficha360({ depId, onClose }: { depId: number | null; onC
     ['DNI', dep.dni], ['Sexo', dep.sexo], ['Fecha de nacimiento', `${fmtFecha(dep.fechaNacimiento)} (${edad} años)`],
     ['Categoría', dep.categoria], ['Deporte', dep.deporte], ['Prueba', dep.prueba ?? '—'],
     ['Nivel técnico', dep.nivelTecnico], ['Modalidad', dep.modalidad], ['Entrenador', dep.entrenador ?? '—'],
-    ['Ingreso al CAR', fmtFecha(dep.fechaIngreso)], ['Teléfono', dep.telefono ?? '—'], ['Procedencia', dep.procedencia],
+    ['Ingreso al CAR', fmtFecha(dep.fechaIngreso)],
+    ['Vence continuidad', fmtFecha(dep.fechaVencimientoContinuidad) || '—'],
+    ['Aval médico', dep.fechaCaducidadAval ? `${estadoAval(dep.fechaCaducidadAval).texto} · vence ${fmtFecha(dep.fechaCaducidadAval)}` : 'SIN REGISTRO'],
+    ['Teléfono', dep.telefono ?? '—'], ['Procedencia', dep.procedencia],
     ['Seguro PAD', dep.pad ? 'SI' : 'NO'], ['Estado', dep.retirado ? 'RETIRADO' : 'ACTIVO'],
   ] : []
 

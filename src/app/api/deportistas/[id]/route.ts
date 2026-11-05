@@ -35,6 +35,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         entrenador: b.entrenador !== undefined ? b.entrenador : undefined,
         prueba: b.prueba !== undefined ? b.prueba : undefined,
         activo: b.activo, retirado: b.retirado,
+        fechaVencimientoContinuidad: b.fechaVencimientoContinuidad !== undefined ? (b.fechaVencimientoContinuidad ? new Date(b.fechaVencimientoContinuidad) : null) : undefined,
+        fechaCaducidadAval: b.fechaCaducidadAval !== undefined ? (b.fechaCaducidadAval ? new Date(b.fechaCaducidadAval) : null) : undefined,
       },
     })
     return NextResponse.json(actualizado)

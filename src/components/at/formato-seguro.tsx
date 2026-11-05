@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from '@/hooks/use-toast'
-import { api, BotonesExportar, SelectorMes, BadgeCat } from './ui-at'
+import { api, estadoAval, BotonesExportar, SelectorMes, BadgeCat } from './ui-at'
 import { fmtFecha } from '@/lib/periodos'
 import type { Deportista } from './ui-at'
 
@@ -42,10 +42,10 @@ export default function FormatoSeguro() {
         </div>
         <Table>
           <TableHeader><TableRow className="bg-white">
-            {['N°', 'APELLIDOS', 'NOMBRES', 'DNI', 'SEXO', 'F. INGRESO', 'DEPORTE', 'F. NAC.', 'NIVEL TÉC.', 'MODALIDAD', 'TELÉFONO', 'PROCEDENCIA', 'CATEG.', 'PAD'].map((h) => <TableHead key={h} className="text-red-900">{h}</TableHead>)}
+            {['N°', 'APELLIDOS', 'NOMBRES', 'DNI', 'SEXO', 'F. INGRESO', 'DEPORTE', 'F. NAC.', 'NIVEL TÉC.', 'MODALIDAD', 'TELÉFONO', 'PROCEDENCIA', 'CATEG.', 'VENC. CONTINUIDAD', 'AVAL MÉDICO', 'PAD'].map((h) => <TableHead key={h} className="text-red-900">{h}</TableHead>)}
           </TableRow></TableHeader>
           <TableBody>
-            {cargando && <TableRow><TableCell colSpan={14} className="py-8 text-center">Cargando…</TableCell></TableRow>}
+            {cargando && <TableRow><TableCell colSpan={16} className="py-8 text-center">Cargando…</TableCell></TableRow>}
             {lista.map((d, i) => (
               <TableRow key={d.id}>
                 <TableCell>{i + 1}</TableCell>
@@ -61,6 +61,13 @@ export default function FormatoSeguro() {
                 <TableCell>{d.telefono ?? '—'}</TableCell>
                 <TableCell className="max-w-44 truncate text-xs">{d.procedencia}</TableCell>
                 <TableCell><BadgeCat>{d.categoria}</BadgeCat></TableCell>
+                <TableCell className="text-sm">{fmtFecha(d.fechaVencimientoContinuidad) || '—'}</TableCell>
+                <TableCell>
+                  <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${estadoAval(d.fechaCaducidadAval).clase}`}>
+                    {estadoAval(d.fechaCaducidadAval).texto}
+                  </span>
+                  {d.fechaCaducidadAval && <span className="block text-xs text-slate-500">{fmtFecha(d.fechaCaducidadAval)}</span>}
+                </TableCell>
                 <TableCell>
                   <button onClick={() => togglePad(d)} className={`rounded px-2 py-0.5 text-xs font-bold ${d.pad ? 'bg-green-100 text-green-800' : 'bg-slate-200 text-slate-500'}`}>
                     {d.pad ? 'SI' : 'NO'}
@@ -71,7 +78,7 @@ export default function FormatoSeguro() {
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-slate-500">La columna PAD se puede marcar/desmarcar haciendo clic; el cambio se guarda al instante y afecta la ficha del deportista.</p>
+      <p className="text-xs text-slate-500">La columna PAD se puede marcar/desmarcar haciendo clic (se guarda al instante). Las columnas «VENC. CONTINUIDAD» y «AVAL MÉDICO» se registran desde la pestaña Deportistas → Editar; el aval muestra VIGENTE, POR VENCER (≤30 días) o EXPIRADO según su fecha de caducidad.</p>
     </div>
   )
 }

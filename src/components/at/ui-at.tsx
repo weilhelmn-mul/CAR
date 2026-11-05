@@ -125,6 +125,18 @@ export type Deportista = {
   sexo: string; fechaIngreso: string | null; deporte: string; fechaNacimiento: string; nivelTecnico: string
   modalidad: string; telefono: string | null; procedencia: string; categoria: string; pad: boolean
   entrenador: string | null; prueba: string | null; activo: boolean; retirado: boolean
+  fechaVencimientoContinuidad: string | null; fechaCaducidadAval: string | null
+}
+
+// Estado del aval médico según fecha de caducidad: VIGENTE / POR VENCER (≤30 días) / EXPIRADO
+export function estadoAval(fechaCaducidad: string | null | undefined): { texto: string; clase: string } {
+  if (!fechaCaducidad) return { texto: 'SIN REGISTRO', clase: 'bg-slate-100 text-slate-500' }
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const f = new Date(fechaCaducidad); f.setHours(0, 0, 0, 0)
+  const dias = Math.round((f.getTime() - hoy.getTime()) / 86400000)
+  if (dias < 0) return { texto: 'EXPIRADO', clase: 'bg-red-100 text-red-800' }
+  if (dias <= 30) return { texto: 'POR VENCER', clase: 'bg-amber-100 text-amber-800' }
+  return { texto: 'VIGENTE', clase: 'bg-green-100 text-green-800' }
 }
 
 export function useDeportistas() {
