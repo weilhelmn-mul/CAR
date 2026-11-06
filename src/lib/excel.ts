@@ -3,6 +3,8 @@
 import ExcelJS from 'exceljs'
 import path from 'path'
 import fs from 'fs'
+import sharp from 'sharp'
+import type { AnalisisRend } from './rendimiento'
 import { infoQuincena, cumpleEnQuincena, MESES_ES, rangoPeriodo, fmtFecha, marcaTexto, nombreCompleto, type TipoPeriodo } from './periodos'
 
 const plantilla = (nombre: string) => path.join(process.cwd(), 'templates', nombre)
@@ -153,7 +155,7 @@ export type DatosF3 = {
   evaluacionGeneral?: string | null; observaciones?: string | null
 }
 
-export async function exportF3(dep: { [k: string]: unknown }, datos: DatosF3, refMes: string): Promise<Buffer> {
+export async function exportF3(dep: { [k: string]: unknown }, datos: DatosF3, refMes: string, firmaImagen?: string | null): Promise<Buffer> {
   const wb = await abrir(plantilla('PLANTILLA FORMATO AT-F3.xlsx'))
   const ws = wb.getWorksheet('Hoja1')!
   prepararImpresion(ws)
@@ -183,6 +185,7 @@ export async function exportF3(dep: { [k: string]: unknown }, datos: DatosF3, re
   const notaOficial = '*EN EL CASO QUE EL DEPORTISTA NO CUMPLA CON LOS PORCENTAJES DE ASISTENCIA Y DE PREPRACION, INDICAR LOS MOTIVOS.'
   const obs = datos.observaciones ? `\n${datos.observaciones}` : ''
   p(ws, 'B57', `${notaOficial}${obs}`, true)
+  ponerFirma(ws, await cargarFirma(wb, firmaImagen), 3.4, 62.9) // zona de firma D66 (FIRMA DEL ENTRENADOR O JUT)
   return buffer(wb)
 }
 
@@ -195,7 +198,7 @@ export type DatosF1 = {
   textos: { valoracionTecnica?: string; dificultades?: string; valoracionMedica?: string; profilactico?: string; balanceNutricional?: string; funcionamientoCar?: string; aspectosCar?: string; otrosAspectos?: string }
 }
 
-export async function exportF1(datos: DatosF1, refMes: string): Promise<Buffer> {
+export async function exportF1(datos: DatosF1, refMes: string, firmaJUT?: string | null, firmaEntrenador?: string | null): Promise<Buffer> {
   const wb = await abrir(plantilla('PLANTILLA FORMATO AT-F1 CAR.xlsx'))
   const ws = wb.getWorksheet('Hoja1')!
   prepararImpresion(ws, true)
@@ -238,6 +241,8 @@ export async function exportF1(datos: DatosF1, refMes: string): Promise<Buffer> 
   p(ws, 'A61', tx.funcionamientoCar ?? '', true)
   p(ws, 'A64', tx.aspectosCar ?? '', true)
   p(ws, 'A66', tx.otrosAspectos ?? '', true)
+  ponerFirma(ws, await cargarFirma(wb, firmaJUT), 1.5, 66.9) // zona B67-B68 (JEFE DE UNIDAD TECNICA / DINADAF)
+  ponerFirma(ws, await cargarFirma(wb, firmaEntrenador), 8.7, 66.9) // zona derecha (ENTRENADOR)
   return buffer(wb)
 }
 
@@ -271,7 +276,7 @@ export type DatosF9 = {
   analisisObjetivos?: string | null; otrosInteres?: string | null; calificacion?: string | null
 }
 
-export async function exportF9(datos: DatosF9, refMes: string): Promise<Buffer> {
+export async function exportF9(datos: DatosF9, refMes: string, firmaImagen?: string | null): Promise<Buffer> {
   const wb = await abrir(plantilla('PLANTILLA FORMATO AT -F9.xlsx'))
   const ws = wb.getWorksheet('Hoja1')!
   prepararImpresion(ws)
@@ -299,6 +304,7 @@ export async function exportF9(datos: DatosF9, refMes: string): Promise<Buffer> 
   ;['BUENO', 'REGULAR', 'MALO'].forEach((cal, i) => {
     p(ws, `C${48 + i}`, datos.calificacion === cal ? 'X' : null)
   })
+  ponerFirma(ws, await cargarFirma(wb, firmaImagen), 3.4, 52.9) // zona de firma D56 (JEFE DE UNIDAD TECNICA)
   return buffer(wb)
 }
 
@@ -339,6 +345,30 @@ function filaTabla(ws: ExcelJS.Worksheet, fila: number, valores: Celda[], zebra:
 
 function anchos(ws: ExcelJS.Worksheet, w: number[]) {
   w.forEach((x, i) => { ws.getColumn(i + 1).width = x })
+}
+
+// ============================================================
+// FIRMAS — incrusta la imagen de firma subida en la zona de firmas de la plantilla
+// ============================================================
+export type FirmaImg = { id: number; w: number; h: number }
+
+async function cargarFirma(wb: ExcelJS.Workbook, imagen: string | null | undefined): Promise<FirmaImg | null> {
+  if (!imagen || !imagen.startsWith('data:image/')) return null
+  try {
+    const base64 = imagen.includes(',') ? imagen.split(',')[1] : imagen
+    const extension = imagen.startsWith('data:image/png') ? 'png' : 'jpeg'
+    const meta = await sharp(Buffer.from(base64, 'base64')).metadata()
+    const h = 38
+    const proporcion = (meta.width ?? 1) / (meta.height ?? 1)
+    const w = Math.min(150, Math.max(55, Math.round(proporcion * h)))
+    const id = wb.addImage({ base64, extension })
+    return { id, w, h }
+  } catch { return null }
+}
+
+function ponerFirma(ws: ExcelJS.Worksheet, f: FirmaImg | null, col: number, fila: number) {
+  if (!f) return
+  ws.addImage(f.id, { tl: { col, row: fila }, ext: { width: f.w, height: f.h } })
 }
 
 function pagina(ws: ExcelJS.Worksheet, horizontal = true) {
@@ -463,6 +493,81 @@ export async function exportFicha(f: FichaData): Promise<Buffer> {
 }
 
 function marcaTextoTexto(marca: string, _prueba: string): string { return marca }
+
+// ============================================================
+// ANÁLISIS DE RENDIMIENTO POR DEPORTISTA Y PRUEBA — libro multi-hoja
+// ============================================================
+export async function exportRendimiento(r: AnalisisRend): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook()
+
+  // --- HOJA 1: RESUMEN TÉCNICO ---
+  const r1 = wb.addWorksheet('RESUMEN')
+  tituloHoja(r1, `ANÁLISIS DE RENDIMIENTO — ${r.nombre} — ${r.prueba} — ${r.anio}`, 3)
+  const kpis: [string, Celda][] = [
+    ['Deportista', r.nombre], ['Categoría', r.categoria], ['Sexo', r.sexo],
+    ['Prueba analizada', r.prueba], ['Unidad de medida', r.unidad === 'seg' ? 'SEGUNDOS (menor es mejor)' : 'METROS (mayor es mejor)'],
+    ['Temporada analizada', `AÑO ${r.anio}`], ['Registros en el año', r.nAnio],
+    ['Registros históricos de la prueba', r.nHistorico],
+    ['Marca personal histórica (PB)', r.pb ? `${r.pb.marca}  (${fmtFecha(r.pb.fecha)}, ${r.pb.competencia})` : '—'],
+    ['Mejor marca del año', r.mejorAnio ? `${r.mejorAnio.marca}  (${fmtFecha(r.mejorAnio.fecha)}, ${r.mejorAnio.competencia})` : '—'],
+    ['Progreso sobre la primera marca del año', r.progreso != null ? `${r.progreso > 0 ? '+' : ''}${r.progreso} %` : '—'],
+    ['Tendencia del año (regresión lineal)', `${r.tendencia}${r.pendiente != null ? ` (pendiente ${r.pendiente > 0 ? '+' : ''}${r.pendiente} ${r.unidad === 'seg' ? 's' : 'm'}/mes)` : ''}`],
+    ['Consistencia técnica (CV de marcas)', r.cv != null ? `${r.consistencia} (CV ${r.cv} %)` : '—'],
+    ['Mejor puesto del año', r.mejorPuestoAnio ?? '—'],
+  ]
+  kpis.forEach((k, i) => {
+    r1.getCell(i + 3, 1).value = k[0]; r1.getCell(i + 3, 1).font = { bold: true, size: 10 }
+    r1.getCell(i + 3, 2).value = k[1] as ExcelJS.CellValue; r1.getCell(i + 3, 2).font = { size: 10 }
+  })
+  const filaAnalisis = 3 + kpis.length + 1
+  r1.getCell(filaAnalisis, 1).value = 'ANÁLISIS TÉCNICO DEL PERIODO'
+  r1.getCell(filaAnalisis, 1).font = { bold: true, size: 11, color: { argb: ROJO } }
+  r1.mergeCells(filaAnalisis + 1, 1, filaAnalisis + 1, 2)
+  const ca = r1.getCell(filaAnalisis + 1, 1)
+  ca.value = r.analisis
+  ca.alignment = { wrapText: true, vertical: 'top' }
+  ca.font = { size: 10 }
+  r1.getRow(filaAnalisis + 1).height = 90
+  anchos(r1, [42, 52, 12]); pagina(r1, false)
+
+  // --- HOJA 2: SERIE MENSUAL DEL AÑO (variable a comparar) ---
+  const r2 = wb.addWorksheet('SERIE MENSUAL')
+  tituloHoja(r2, `SERIE MENSUAL ${r.anio} — ${r.prueba}`, 5)
+  encabezadoTabla(r2, 3, ['MES', 'N° REGISTROS', 'MEJOR MARCA', 'PROMEDIO', 'MEJOR PUESTO'])
+  r.meses.forEach((m, i) => {
+    filaTabla(r2, 4 + i, [m.mesNombre, m.n, m.mejorMarca ?? '—', m.promedio != null ? m.promedio.toFixed(2) : '—', m.mejorPuesto ?? '—'], i % 2 === 1)
+  })
+  anchos(r2, [14, 13, 14, 12, 13]); pagina(r2, false)
+
+  // --- HOJA 3: COMPARACIÓN INTERANUAL ---
+  const r3 = wb.addWorksheet('COMPARACIÓN ANUAL')
+  tituloHoja(r3, `MEJOR MARCA POR MES SEGÚN AÑO — ${r.prueba}`, 13)
+  encabezadoTabla(r3, 3, ['AÑO', ...MESES_ES.map((m) => m.slice(0, 3)), 'MEJOR DEL AÑO'])
+  r.porAnio.forEach((a, i) => {
+    filaTabla(r3, 4 + i, [String(a.anio), ...a.valores.map((v) => v ?? '—'), a.mejorMarca ?? '—'], i % 2 === 1)
+  })
+  anchos(r3, [8, ...Array(12).fill(7), 13]); pagina(r3)
+
+  // --- HOJA 4: REGISTROS DEL AÑO (con Δ% vs PB) ---
+  const r4 = wb.addWorksheet('REGISTROS DEL AÑO')
+  tituloHoja(r4, `REGISTROS ${r.anio} — ${r.prueba} — ${r.nombre}`, 8)
+  encabezadoTabla(r4, 3, ['N°', 'FECHA', 'COMPETENCIA', 'SEDE', 'NIVEL', 'MARCA', 'PUESTO', 'Δ% vs PB'])
+  r.registros.forEach((x, i) => {
+    filaTabla(r4, 4 + i, [i + 1, fmtFecha(x.fecha), x.competencia, x.sede ?? '—', x.nivel ?? '—', x.marca, x.puesto ?? '—', x.deltaPb != null ? `${x.deltaPb > 0 ? '+' : ''}${x.deltaPb} %` : 'PB'], i % 2 === 1)
+  })
+  anchos(r4, [5, 12, 28, 22, 16, 10, 8, 11]); pagina(r4)
+
+  // --- HOJA 5: HISTÓRICO COMPLETO DE LA PRUEBA ---
+  const r5 = wb.addWorksheet('HISTÓRICO COMPLETO')
+  tituloHoja(r5, `HISTÓRICO COMPLETO — ${r.prueba} — ${r.nombre}`, 7)
+  encabezadoTabla(r5, 3, ['N°', 'AÑO', 'FECHA', 'COMPETENCIA', 'NIVEL', 'MARCA', 'PUESTO', 'Δ% vs PB'])
+  r.historico.forEach((x, i) => {
+    filaTabla(r5, 4 + i, [i + 1, x.fecha.slice(0, 4), fmtFecha(x.fecha), x.competencia, x.nivel ?? '—', x.marca, x.puesto ?? '—', x.deltaPb != null ? `${x.deltaPb > 0 ? '+' : ''}${x.deltaPb} %` : 'PB'], i % 2 === 1)
+  })
+  anchos(r5, [5, 7, 12, 28, 16, 10, 8, 11]); pagina(r5)
+
+  return buffer(wb)
+}
 
 // reexportar para rutas
 export { rangoPeriodo }

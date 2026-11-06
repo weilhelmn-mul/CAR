@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Pencil, Trash2, UserSearch, Filter, Columns3, X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, UserSearch, Filter, Columns3, X, ArrowUp, ArrowDown, ArrowUpDown, FileText, ClipboardList } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { api, useDeportistas, nombreCompletoUI, estadoAval, calcularEdad, type Deportista, BadgeCat } from './ui-at'
 import { CATEGORIAS, NIVELES, MODALIDADES, DEPORTES, SEXOS, fmtFecha } from '@/lib/periodos'
@@ -223,7 +223,7 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
   const visiblesList = COLUMNAS.filter((c) => visibles.has(c.key))
   const colSpan = 3 + visiblesList.length
   const thOrden = (key: string, label: string, className = 'text-red-900') => (
-    <TableHead className={className}>
+    <TableHead className={`px-2 ${className}`}>
       <button type="button" className="inline-flex items-center gap-1 font-medium hover:underline" onClick={() => cambiarOrden(key)}>
         {label}
         {orden?.key === key
@@ -378,14 +378,15 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
         {orden && <span>Ordenado por <b className="text-slate-700">{etiquetaDe(orden.key)}</b> ({orden.dir === 'asc' ? 'ascendente' : 'descendente'})</span>}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+      {/* ===== TABLA COMPACTA — tablet y desktop ===== */}
+      <div className="hidden overflow-x-auto rounded-xl border bg-white shadow-sm md:block">
         <Table>
           <TableHeader>
             <TableRow className="bg-red-50">
-              <TableHead className="w-8 text-red-900">N°</TableHead>
+              <TableHead className="w-8 px-2 text-red-900">N°</TableHead>
               {thOrden('nombres', 'Apellidos y nombres')}
               {visiblesList.map((c) => thOrden(c.key, c.etiqueta))}
-              <TableHead className="text-right text-red-900">Acciones</TableHead>
+              <TableHead className="px-2 text-right text-red-900">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -393,18 +394,51 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
             {!cargando && filtrados.length === 0 && <TableRow><TableCell colSpan={colSpan} className="py-8 text-center text-slate-500">Sin resultados</TableCell></TableRow>}
             {filtrados.map((d, i) => (
               <TableRow key={d.id} className={d.retirado ? 'opacity-50' : ''}>
-                <TableCell className="text-xs text-slate-500">{i + 1}</TableCell>
-                <TableCell className="font-medium">{nombreCompletoUI(d)}</TableCell>
-                {visiblesList.map((c) => <TableCell key={c.key}>{celda(d, c.key)}</TableCell>)}
-                <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" className="text-red-900" onClick={() => setDepIdFicha(d.id)}>Ficha 360°</Button>
-                  <Button size="sm" variant="ghost" onClick={() => abrirEdicion(d)}><Pencil className="h-4 w-4" /></Button>
-                  <Button size="sm" variant="ghost" className="text-red-600" onClick={() => eliminar(d)}><Trash2 className="h-4 w-4" /></Button>
+                <TableCell className="px-2 text-xs text-slate-500">{i + 1}</TableCell>
+                <TableCell className="px-2 text-sm font-medium">{nombreCompletoUI(d)}</TableCell>
+                {visiblesList.map((c) => <TableCell key={c.key} className="px-2">{celda(d, c.key)}</TableCell>)}
+                <TableCell className="whitespace-nowrap px-2 text-right">
+                  <Button size="icon" variant="ghost" title="Ficha 360°" className="h-7 w-7 text-red-900" onClick={() => setDepIdFicha(d.id)}><FileText className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" title="Editar" className="h-7 w-7" onClick={() => abrirEdicion(d)}><Pencil className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" title="Eliminar" className="h-7 w-7 text-red-600" onClick={() => eliminar(d)}><Trash2 className="h-4 w-4" /></Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      {/* ===== TARJETAS — celular (sin barras de desplazamiento) ===== */}
+      <div className="space-y-2.5 md:hidden">
+        {cargando && <p className="py-8 text-center text-sm text-slate-500">Cargando…</p>}
+        {!cargando && filtrados.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Sin resultados</p>}
+        {filtrados.map((d, i) => (
+          <div key={d.id} className={`rounded-xl border bg-white p-3 shadow-sm ${d.retirado ? 'opacity-50' : ''}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-slate-800">{i + 1}. {nombreCompletoUI(d)}</p>
+                <p className="text-xs text-slate-500">DNI {d.dni}</p>
+              </div>
+              <BadgeCat>{d.categoria}</BadgeCat>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700">{calcularEdad(d.fechaNacimiento) ?? '—'} años</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.sexo === 'FEMENINO' ? 'F' : 'M'}</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.deporte}{d.prueba ? ` · ${d.prueba}` : ''}</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.modalidad}</span>
+              {d.pad && <span className="rounded bg-green-100 px-1.5 py-0.5 font-bold text-green-800">PAD</span>}
+              <span className={`rounded px-1.5 py-0.5 font-bold ${estadoAval(d.fechaCaducidadAval).clase}`}>{estadoAval(d.fechaCaducidadAval).texto}</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Ingreso: {fmtFecha(d.fechaIngreso) || '—'}</span>
+              {d.fechaVencimientoContinuidad && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Continuidad: {fmtFecha(d.fechaVencimientoContinuidad)}</span>}
+              {d.retirado && <span className="rounded bg-slate-200 px-1.5 py-0.5 font-bold text-slate-600">RETIRADO</span>}
+            </div>
+            <div className="mt-2.5 flex gap-1.5 border-t pt-2">
+              <Button size="sm" variant="outline" className="h-7 flex-1 text-xs text-red-900" onClick={() => setDepIdFicha(d.id)}><ClipboardList className="h-3.5 w-3.5" /> Ficha 360°</Button>
+              <Button size="sm" variant="outline" title="Editar" className="h-7 w-9 p-0" onClick={() => abrirEdicion(d)}><Pencil className="h-3.5 w-3.5" /></Button>
+              <Button size="sm" variant="outline" title="Eliminar" className="h-7 w-9 p-0 text-red-600" onClick={() => eliminar(d)}><Trash2 className="h-3.5 w-3.5" /></Button>
+            </div>
+          </div>
+        ))}
       </div>
 
       <Dialog open={dialogo} onOpenChange={setDialogo}>

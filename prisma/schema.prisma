@@ -73,6 +73,17 @@ model Alimentacion {
   @@unique([deportistaId, periodo])
 }
 
+// ============ FIRMAS PARA LOS FORMATOS OFICIALES ============
+model Firma {
+  id        Int      @id @default(autoincrement())
+  clave     String   @unique // 'JUT' (Jefe de Unidad Técnica · F1/F9) | 'ENTRENADOR' (F3) | libres
+  nombre    String   // nombre completo de quien firma
+  cargo     String   // cargo que aparece junto a la firma
+  imagen    String // imagen de la firma en data URL base64 (png/jpeg)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
 // ============ AT-F8: PLAN MENSUAL JUT ============
 model FormatoF8 {
   id         Int      @id @default(autoincrement())

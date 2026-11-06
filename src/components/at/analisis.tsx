@@ -1,11 +1,13 @@
 'use client'
 
-// ANÁLISIS DEPORTIVO — mejores marcas por mes/bimestre/trimestre/año + cuadros estadísticos
+// ANÁLISIS DEPORTIVO — panel de población por periodo + análisis de rendimiento técnico
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, LineChart, Line } from 'recharts'
 import { Loader2, Table2 } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Kpi, TituloSeccion, api, SelectorMes, BotonesExportar, BotonIA, PALETA } from './ui-at'
 import type { TipoPeriodo } from '@/lib/periodos'
+import Rendimiento from './rendimiento'
 
 type Estad = {
   etiqueta: string; activos: number; pad: number; ingresos: number; resultados: number
@@ -46,6 +48,15 @@ export default function Analisis() {
   const params = { tipo: 'analisis', tipoPeriodo: tipo, periodo: ref }
 
   return (
+    <Tabs defaultValue="poblacion">
+      <TabsList className="mb-4 flex h-auto flex-wrap gap-1 bg-white p-1 shadow-sm">
+        <TabsTrigger value="poblacion" className="data-[state=active]:bg-red-800 data-[state=active]:text-white">Población y periodo</TabsTrigger>
+        <TabsTrigger value="rendimiento" className="data-[state=active]:bg-red-800 data-[state=active]:text-white">Rendimiento por deportista</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="rendimiento"><Rendimiento /></TabsContent>
+
+      <TabsContent value="poblacion">
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex overflow-hidden rounded-md border">
@@ -153,5 +164,7 @@ export default function Analisis() {
         </>
       )}
     </div>
+      </TabsContent>
+    </Tabs>
   )
 }

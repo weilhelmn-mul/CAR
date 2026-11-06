@@ -2,11 +2,17 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import {
   exportSeguro, exportAlimentacion, exportF3, exportF1, exportF8, exportF9,
-  exportAnalisis, exportFicha, type DatosF1, type FichaData,
+  exportAnalisis, exportFicha, exportRendimiento, type DatosF1, type FichaData,
 } from '@/lib/excel'
 import { xlsxAPdf } from '@/lib/pdf'
 import { calcularEstadisticas } from '@/lib/analisis'
+import { analisisRendimiento } from '@/lib/rendimiento'
 import { infoQuincena, MESES_ES, nombreCompleto, HORARIO_DEFAULT, type TipoPeriodo } from '@/lib/periodos'
+
+async function imagenFirma(clave: string): Promise<string | null> {
+  const f = await db.firma.findUnique({ where: { clave } })
+  return f?.activo ? f.imagen : null
+}
 
 function respuesta(buf: Buffer, tipo: string, nombre: string) {
   return new Response(new Uint8Array(buf), {
@@ -56,11 +62,12 @@ export async function GET(req: NextRequest) {
           evaluacionGeneral: f3?.evaluacionGeneral ?? '', observaciones: f3?.observaciones ?? '',
         },
         refMes,
+        await imagenFirma('ENTRENADOR'),
       )
       nombre = `FORMATO AT-F3 - ${nombreCompleto(dep)} - ${nombreMes(refMes)} ${anioDe(refMes)}.xlsx`
     } else if (tipo === 'f1') {
       const datos = await armarF1(refMes)
-      xlsx = await exportF1(datos, refMes)
+      xlsx = await exportF1(datos, refMes, await imagenFirma('JUT'), await imagenFirma('ENTRENADOR'))
       nombre = `FORMATO AT-F1 CAR - ${nombreMes(refMes)} ${anioDe(refMes)}.xlsx`
     } else if (tipo === 'f8') {
       const rec = await db.formatoF8.findUnique({ where: { periodo: refMes } })
@@ -77,13 +84,21 @@ export async function GET(req: NextRequest) {
         resenaRevision: rec.resenaRevision, visitas: rec.visitas, evaluacionVisitas: rec.evaluacionVisitas, resumenDificultades: rec.resumenDificultades,
         baseDatos: rec.baseDatos, calendario: rec.calendario, capacitaciones: rec.capacitaciones, analisisObjetivos: rec.analisisObjetivos,
         otrosInteres: rec.otrosInteres, calificacion: rec.calificacion,
-      } : {}, refMes)
+      } : {}, refMes, await imagenFirma('JUT'))
       nombre = `FORMATO AT-F9 - ${nombreMes(refMes)} ${anioDe(refMes)}.xlsx`
     } else if (tipo === 'analisis') {
       const tipoP = (searchParams.get('tipoPeriodo') ?? 'MENSUAL') as TipoPeriodo
       const ag = await calcularEstadisticas(tipoP, refMes)
       xlsx = await exportAnalisis(ag)
       nombre = `ANALISIS DEPORTIVO - ${ag.etiqueta}.xlsx`
+    } else if (tipo === 'rendimiento') {
+      const depIdR = Number(searchParams.get('depId'))
+      const pruebaR = searchParams.get('prueba') ?? ''
+      const anioR = Number(searchParams.get('anio')) || new Date().getUTCFullYear()
+      if (!depIdR || !pruebaR) return Response.json({ error: 'Faltan depId o prueba' }, { status: 400 })
+      const rend = await analisisRendimiento(depIdR, pruebaR, anioR)
+      xlsx = await exportRendimiento(rend)
+      nombre = `ANALISIS DE RENDIMIENTO - ${rend.nombre} - ${pruebaR} - ${anioR}.xlsx`
     } else if (tipo === 'ficha') {
       const depId = Number(searchParams.get('depId'))
       const dep = await db.deportista.findUnique({ where: { id: depId }, include: { resultados: { orderBy: { fecha: 'desc' } } } })
