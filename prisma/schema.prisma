@@ -76,10 +76,11 @@ model Alimentacion {
 // ============ FIRMAS PARA LOS FORMATOS OFICIALES ============
 model Firma {
   id        Int      @id @default(autoincrement())
-  clave     String   @unique // 'JUT' (Jefe de Unidad Técnica · F1/F9) | 'ENTRENADOR' (F3) | libres
+  clave     String   @unique // 'JUT' (Jefe de Unidad Técnica) | 'ENTRENADOR' | 'DINADAF' | personalizadas
   nombre    String   // nombre completo de quien firma
   cargo     String   // cargo que aparece junto a la firma
   imagen    String // imagen de la firma en data URL base64 (png/jpeg)
+  formatos  String   @default("") // códigos separados por coma: F1,F3,F8,F9 — en qué formatos se incrusta
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
 }

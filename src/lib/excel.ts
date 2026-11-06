@@ -251,7 +251,7 @@ export async function exportF1(datos: DatosF1, refMes: string, firmaJUT?: string
 // ============================================================
 export type DatosF8 = { federacion: string; jefe: string; actividades: { actividad: string; fecha: string; hora: string; lugar: string; observaciones: string }[] }
 
-export async function exportF8(datos: DatosF8, refMes: string): Promise<Buffer> {
+export async function exportF8(datos: DatosF8, refMes: string, firmaImagen?: string | null): Promise<Buffer> {
   const wb = await abrir(plantilla('PLANTILLA FORMATO ATF8.xlsx'))
   const ws = wb.getWorksheet('Hoja3')!
   prepararImpresion(ws)
@@ -261,6 +261,7 @@ export async function exportF8(datos: DatosF8, refMes: string): Promise<Buffer> 
   p(ws, 'A9', `MES: ${MESES_ES[parseInt(m) - 1]}                    AÑO: ${y}`)
   const filas: Celda[][] = datos.actividades.map((a, i) => [i + 1, a.actividad, a.fecha, a.hora, a.lugar, a.observaciones])
   escribirFilas(ws, 12, 25, 1, 6, filas)
+  ponerFirma(ws, await cargarFirma(wb, firmaImagen), 3.4, 25.6) // zona C27 (JEFE DE UNIDAD TECNICA Y/O REPRESENTANTE DE LA DINADAF)
   return buffer(wb)
 }
 

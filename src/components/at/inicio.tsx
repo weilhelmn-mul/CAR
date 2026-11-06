@@ -2,8 +2,8 @@
 
 // INICIO — panel general: KPIs, composición de la población, alertas y actividad del mes
 import { useEffect, useMemo, useState } from 'react'
-import { Users, ShieldCheck, CalendarDays, Trophy, Activity, HeartPulse, AlertTriangle, Cake } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts'
+import { Users, ShieldCheck, CalendarDays, Trophy, Activity, HeartPulse, AlertTriangle, Cake, Utensils, BarChart3, Bot, FileSignature, ChevronRight } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts'
 import { Kpi, TituloSeccion, api, PALETA, useDeportistas, BadgeCat, estadoAval, calcularEdad, nombreCompletoUI } from './ui-at'
 import { MESES_ES, fmtFecha } from '@/lib/periodos'
 
@@ -21,14 +21,34 @@ const GRUPOS_EDAD = ['≤ 15', '16-17', '18-19', '20-22', '23-25', '26+'] as con
 const enGrupo = (e: number | null) => (e == null ? -1 : e <= 15 ? 0 : e <= 17 ? 1 : e <= 19 ? 2 : e <= 22 ? 3 : e <= 25 ? 4 : 5)
 const DIAS_ALERTA = 60
 
-export default function Inicio({ onAbrirFicha }: { onAbrirFicha: (id: number) => void }) {
+// Leyenda propia (chips con punto de color): reemplaza la leyenda de recharts para que no se superponga en pantallas pequeñas
+const Chips = ({ items }: { items: { clave: string; total: number; color: string }[] }) => (
+  <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+    {items.map((x) => (
+      <span key={x.clave} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: x.color }} />{x.clave}: {x.total}
+      </span>
+    ))}
+  </div>
+)
+
+export default function Inicio({ onAbrirFicha, onIrA }: { onAbrirFicha: (id: number) => void; onIrA: (tab: string) => void }) {
   const { lista } = useDeportistas()
   const [est, setEst] = useState<Estad | null>(null)
+  const [movil, setMovil] = useState(false)
   const mesHoy = new Date().toISOString().slice(0, 7)
 
   useEffect(() => {
     api<Estad>(`/api/estadisticas?tipo=MENSUAL&ref=${mesHoy}`).then(setEst).catch(() => null)
   }, [mesHoy])
+
+  // Detecta pantallas pequeñas para redibujar los gráficos (los pasteles se muestran separados)
+  useEffect(() => {
+    const f = () => setMovil(window.innerWidth < 640)
+    f()
+    window.addEventListener('resize', f)
+    return () => window.removeEventListener('resize', f)
+  }, [])
 
   const activos = useMemo(() => lista.filter((d) => d.activo && !d.retirado), [lista])
 
@@ -89,10 +109,10 @@ export default function Inicio({ onAbrirFicha }: { onAbrirFicha: (id: number) =>
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <TituloSeccion>Composición por categoría</TituloSeccion>
-          <div className="h-52">
+          <div className="h-44 sm:h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={est?.porCategoria ?? []}>
-                <XAxis dataKey="clave" tick={{ fontSize: 11 }} />
+              <BarChart data={est?.porCategoria ?? []} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
+                <XAxis dataKey="clave" tick={{ fontSize: 11 }} interval={0} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Bar dataKey="total" radius={[6, 6, 0, 0]}>
@@ -104,10 +124,10 @@ export default function Inicio({ onAbrirFicha }: { onAbrirFicha: (id: number) =>
         </div>
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <TituloSeccion>Distribución de edades</TituloSeccion>
-          <div className="h-52">
+          <div className="h-44 sm:h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={porEdad}>
-                <XAxis dataKey="clave" tick={{ fontSize: 11 }} />
+              <BarChart data={porEdad} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
+                <XAxis dataKey="clave" tick={{ fontSize: 11 }} interval={0} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v) => [`${v} deportistas`, 'Total']} />
                 <Bar dataKey="total" radius={[6, 6, 0, 0]}>{porEdad.map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}</Bar>
@@ -117,20 +137,58 @@ export default function Inicio({ onAbrirFicha }: { onAbrirFicha: (id: number) =>
         </div>
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <TituloSeccion>Sexo y estado del aval médico</TituloSeccion>
-          <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={est?.porSexo ?? []} dataKey="total" nameKey="clave" cx="30%" cy="50%" innerRadius={28} outerRadius={55} label={(x: { clave: string }) => x.clave} labelLine={false}>
-                  {(est?.porSexo ?? []).map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}
-                </Pie>
-                <Pie data={porAval} dataKey="total" nameKey="clave" cx="75%" cy="50%" innerRadius={28} outerRadius={55}>
-                  {porAval.map((x) => <Cell key={x.clave} fill={COLOR_AVAL[x.clave] ?? '#94a3b8'} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          {movil ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={est?.porSexo ?? []} dataKey="total" nameKey="clave" cx="50%" cy="50%" innerRadius={20} outerRadius={44}>
+                        {(est?.porSexo ?? []).map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Sexo</p>
+                <Chips items={(est?.porSexo ?? []).map((x, i) => ({ clave: x.clave, total: x.total, color: PALETA[i % PALETA.length] }))} />
+              </div>
+              <div>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={porAval} dataKey="total" nameKey="clave" cx="50%" cy="50%" innerRadius={20} outerRadius={44}>
+                        {porAval.map((x) => <Cell key={x.clave} fill={COLOR_AVAL[x.clave] ?? '#94a3b8'} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Aval médico</p>
+                <Chips items={porAval.map((x) => ({ clave: x.clave, total: x.total, color: COLOR_AVAL[x.clave] ?? '#94a3b8' }))} />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="h-44 sm:h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={est?.porSexo ?? []} dataKey="total" nameKey="clave" cx="27%" cy="50%" innerRadius={30} outerRadius={60}>
+                      {(est?.porSexo ?? []).map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}
+                    </Pie>
+                    <Pie data={porAval} dataKey="total" nameKey="clave" cx="73%" cy="50%" innerRadius={30} outerRadius={60}>
+                      {porAval.map((x) => <Cell key={x.clave} fill={COLOR_AVAL[x.clave] ?? '#94a3b8'} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <Chips items={[
+                ...(est?.porSexo ?? []).map((x, i) => ({ clave: x.clave, total: x.total, color: PALETA[i % PALETA.length] })),
+                ...porAval.map((x) => ({ clave: x.clave, total: x.total, color: COLOR_AVAL[x.clave] ?? '#94a3b8' })),
+              ]} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -203,47 +261,65 @@ export default function Inicio({ onAbrirFicha }: { onAbrirFicha: (id: number) =>
         {resultadosMes.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-500">Sin resultados registrados este mes</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b text-left text-red-900">
-                  {['FECHA', 'DEPORTISTA', 'PRUEBA', 'MARCA', 'PUESTO', 'COMPETENCIA'].map((h) => <th key={h} className="px-2 py-1.5 font-bold">{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {resultadosMes.slice(0, 8).map((r, i) => (
-                  <tr key={i} className={i % 2 ? 'bg-slate-50' : ''}>
-                    <td className="px-2 py-1.5 text-slate-600">{fmtFecha(r.fecha)}</td>
-                    <td className="px-2 py-1.5 font-medium">{r.nombre}</td>
-                    <td className="px-2 py-1.5">{r.prueba}</td>
-                    <td className="px-2 py-1.5 font-bold text-red-900">{r.marca}</td>
-                    <td className="px-2 py-1.5 text-slate-600">{r.puesto ?? '—'}</td>
-                    <td className="px-2 py-1.5 text-slate-600">{r.competencia}</td>
+          <>
+            {/* Tabla — tablet y desktop */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b text-left text-red-900">
+                    {['FECHA', 'DEPORTISTA', 'PRUEBA', 'MARCA', 'PUESTO', 'COMPETENCIA'].map((h) => <th key={h} className="px-2 py-1.5 font-bold">{h}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {resultadosMes.slice(0, 8).map((r, i) => (
+                    <tr key={i} className={i % 2 ? 'bg-slate-50' : ''}>
+                      <td className="px-2 py-1.5 text-slate-600">{fmtFecha(r.fecha)}</td>
+                      <td className="px-2 py-1.5 font-medium">{r.nombre}</td>
+                      <td className="px-2 py-1.5">{r.prueba}</td>
+                      <td className="px-2 py-1.5 font-bold text-red-900">{r.marca}</td>
+                      <td className="px-2 py-1.5 text-slate-600">{r.puesto ?? '—'}</td>
+                      <td className="px-2 py-1.5 text-slate-600">{r.competencia}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Tarjetas — celular (sin barras de desplazamiento) */}
+            <div className="space-y-2 md:hidden">
+              {resultadosMes.slice(0, 8).map((r, i) => (
+                <div key={i} className="rounded-lg border p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-semibold">{r.nombre}</p>
+                    <span className="shrink-0 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-bold text-red-900">{r.marca}</span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{fmtFecha(r.fecha)} · {r.prueba} · Puesto {r.puesto ?? '—'}</p>
+                  <p className="truncate text-[11px] text-slate-400">{r.competencia}</p>
+                </div>
+              ))}
+            </div>
             {resultadosMes.length > 8 && <p className="pt-2 text-center text-xs text-slate-500">… y {resultadosMes.length - 8} registros más (ver pestaña Análisis deportivo)</p>}
-          </div>
+          </>
         )}
       </div>
 
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <TituloSeccion>Accesos rápidos</TituloSeccion>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { t: 'Programación de alimentación', d: 'Quincena 1–15 / 16–31, con cumpleaños del periodo' },
-            { t: 'Lista para seguro (PAD)', d: 'Roster oficial con datos completos' },
-            { t: 'Análisis deportivo', d: 'Rendimiento por deportista, prueba, meses y años' },
-            { t: 'Asistente IA', d: 'Redacción técnica de los informes AT' },
-          ].map((x) => (
-            <div key={x.t} className="flex items-start gap-2 rounded-lg border border-dashed p-3">
-              <Activity className="mt-0.5 h-4 w-4 shrink-0 text-red-800" />
-              <div>
-                <p className="text-sm font-semibold">{x.t}</p>
-                <p className="text-xs text-slate-500">{x.d}</p>
-              </div>
-            </div>
+            { t: 'Programación de alimentación', d: 'Quincena 1–15 / 16–31, con cumpleaños del periodo', tab: 'formatos', I: Utensils },
+            { t: 'Lista para seguro (PAD)', d: 'Roster oficial con datos completos', tab: 'formatos', I: ShieldCheck },
+            { t: 'Análisis deportivo', d: 'Rendimiento por deportista, prueba, meses y años', tab: 'analisis', I: BarChart3 },
+            { t: 'Asistente IA', d: 'Redacción técnica de los informes AT', tab: 'asistente', I: Bot },
+            { t: 'Registro de deportistas', d: 'Datos, filtros, ficha 360° y estado', tab: 'deportistas', I: Users },
+            { t: 'Firmas de los formatos', d: 'Sube firmas y elige dónde se incrustan', tab: 'firmas', I: FileSignature },
+          ].map(({ t, d, tab, I }) => (
+            <button key={t} type="button" onClick={() => onIrA(tab)} className="group flex items-start gap-2 rounded-lg border border-dashed p-3 text-left transition-colors hover:border-red-800 hover:bg-red-50">
+              <I className="mt-0.5 h-4 w-4 shrink-0 text-red-800" />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1 text-sm font-semibold text-slate-800">{t}<ChevronRight className="h-3.5 w-3.5 text-red-800 opacity-0 transition-opacity group-hover:opacity-100" /></span>
+                <span className="block text-xs text-slate-500">{d}</span>
+              </span>
+            </button>
           ))}
         </div>
       </div>

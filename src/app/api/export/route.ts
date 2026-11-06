@@ -9,9 +9,24 @@ import { calcularEstadisticas } from '@/lib/analisis'
 import { analisisRendimiento } from '@/lib/rendimiento'
 import { infoQuincena, MESES_ES, nombreCompleto, HORARIO_DEFAULT, type TipoPeriodo } from '@/lib/periodos'
 
-async function imagenFirma(clave: string): Promise<string | null> {
-  const f = await db.firma.findUnique({ where: { clave } })
-  return f?.activo ? f.imagen : null
+type FirmaReg = { id: number; clave: string; imagen: string; formatos: string; activo: boolean }
+const CLAVES_OFICIALES = ['JUT', 'ENTRENADOR', 'DINADAF']
+const firmaIncluye = (f: FirmaReg, formato: string) => !f.formatos ? true : f.formatos.split(',').includes(formato)
+
+// Resuelve qué firma se incrusta en cada zona de firma de un formato:
+// 1) la ranura oficial del rol (si está activa y tiene ese formato marcado), 2) una firma adicional asignada al formato.
+async function resolverFirmas() {
+  const firmas: FirmaReg[] = await db.firma.findMany({ where: { activo: true } })
+  const usadas = new Set<number>()
+  return async (roles: string[], formato: string): Promise<string | null> => {
+    for (const clave of roles) {
+      const f = firmas.find((x) => x.clave === clave && !usadas.has(x.id) && firmaIncluye(x, formato))
+      if (f) { usadas.add(f.id); return f.imagen }
+    }
+    const extra = firmas.find((x) => !CLAVES_OFICIALES.includes(x.clave) && !usadas.has(x.id) && firmaIncluye(x, formato))
+    if (extra) { usadas.add(extra.id); return extra.imagen }
+    return null
+  }
 }
 
 function respuesta(buf: Buffer, tipo: string, nombre: string) {
@@ -52,6 +67,7 @@ export async function GET(req: NextRequest) {
       const dep = await db.deportista.findUnique({ where: { id: depId } })
       if (!dep) return Response.json({ error: 'Deportista no encontrado' }, { status: 404 })
       const f3 = await db.formatoF3.findUnique({ where: { deportistaId_periodo: { deportistaId: depId, periodo: refMes } } })
+      const firmasF3 = await resolverFirmas()
       xlsx = await exportF3(
         dep as unknown as { [k: string]: unknown },
         {
@@ -62,29 +78,32 @@ export async function GET(req: NextRequest) {
           evaluacionGeneral: f3?.evaluacionGeneral ?? '', observaciones: f3?.observaciones ?? '',
         },
         refMes,
-        await imagenFirma('ENTRENADOR'),
+        await firmasF3(['ENTRENADOR', 'JUT'], 'F3'),
       )
       nombre = `FORMATO AT-F3 - ${nombreCompleto(dep)} - ${nombreMes(refMes)} ${anioDe(refMes)}.xlsx`
     } else if (tipo === 'f1') {
       const datos = await armarF1(refMes)
-      xlsx = await exportF1(datos, refMes, await imagenFirma('JUT'), await imagenFirma('ENTRENADOR'))
+      const firmasF1 = await resolverFirmas()
+      xlsx = await exportF1(datos, refMes, await firmasF1(['JUT', 'DINADAF'], 'F1'), await firmasF1(['ENTRENADOR'], 'F1'))
       nombre = `FORMATO AT-F1 CAR - ${nombreMes(refMes)} ${anioDe(refMes)}.xlsx`
     } else if (tipo === 'f8') {
       const rec = await db.formatoF8.findUnique({ where: { periodo: refMes } })
+      const firmasF8 = await resolverFirmas()
       xlsx = await exportF8({
         federacion: rec?.federacion ?? 'FEDERACIÓN DEPORTIVA PERUANA DE ATLETISMO',
         jefe: rec?.jefe ?? '', actividades: (rec?.actividades as unknown as { actividad: string; fecha: string; hora: string; lugar: string; observaciones: string }[]) ?? [],
-      }, refMes)
+      }, refMes, await firmasF8(['JUT', 'DINADAF'], 'F8'))
       nombre = `FORMATO AT-F8 - ${nombreMes(refMes)} ${anioDe(refMes)}.xlsx`
     } else if (tipo === 'f9') {
       const rec = await db.formatoF9.findUnique({ where: { periodo: refMes } })
+      const firmasF9 = await resolverFirmas()
       xlsx = await exportF9(rec ? {
         jefe: rec.jefe, planificadas: rec.planificadas, cumplidas: rec.cumplidas, evaluacionCumplimiento: rec.evaluacionCumplimiento,
         cumplimientoPreparacion: rec.cumplimientoPreparacion, asistenciaPromedio: rec.asistenciaPromedio, dificultades: rec.dificultades,
         resenaRevision: rec.resenaRevision, visitas: rec.visitas, evaluacionVisitas: rec.evaluacionVisitas, resumenDificultades: rec.resumenDificultades,
         baseDatos: rec.baseDatos, calendario: rec.calendario, capacitaciones: rec.capacitaciones, analisisObjetivos: rec.analisisObjetivos,
         otrosInteres: rec.otrosInteres, calificacion: rec.calificacion,
-      } : {}, refMes, await imagenFirma('JUT'))
+      } : {}, refMes, await firmasF9(['JUT'], 'F9'))
       nombre = `FORMATO AT-F9 - ${nombreMes(refMes)} ${anioDe(refMes)}.xlsx`
     } else if (tipo === 'analisis') {
       const tipoP = (searchParams.get('tipoPeriodo') ?? 'MENSUAL') as TipoPeriodo
