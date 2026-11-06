@@ -97,7 +97,7 @@ export default function Ficha360({ depId, onClose }: { depId: number | null; onC
     ['Vence continuidad', fmtFecha(dep.fechaVencimientoContinuidad) || '—'],
     ['Aval médico', dep.fechaCaducidadAval ? `${estadoAval(dep.fechaCaducidadAval).texto} · vence ${fmtFecha(dep.fechaCaducidadAval)}` : 'SIN REGISTRO'],
     ['Teléfono', dep.telefono ?? '—'], ['Procedencia', dep.procedencia],
-    ['Seguro PAD', dep.pad ? 'SI' : 'NO'], ['Estado', dep.retirado ? 'RETIRADO' : 'ACTIVO'],
+    ['Seguro PAD', dep.pad ? 'SI' : 'NO'], ['Estado', dep.retirado ? 'RETIRADO' : dep.activo ? 'ACTIVO' : 'INACTIVO'],
   ] : []
 
   return (

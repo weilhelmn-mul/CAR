@@ -470,7 +470,7 @@ export async function exportFicha(f: FichaData): Promise<Buffer> {
     ['Modalidad', String(d.modalidad)], ['Entrenador', String(d.entrenador ?? '')],
     ['Fecha de ingreso al CAR', fmtFecha(d.fechaIngreso ? String(d.fechaIngreso) : null)],
     ['Teléfono', d.telefono ? String(d.telefono) : '—'], ['Distrito/Provincia de procedencia', String(d.procedencia)],
-    ['Seguro PAD', d.pad ? 'SI' : 'NO'], ['Estado', d.retirado ? 'RETIRADO' : 'ACTIVO'],
+    ['Seguro PAD', d.pad ? 'SI' : 'NO'], ['Estado', d.retirado ? 'RETIRADO' : d.activo ? 'ACTIVO' : 'INACTIVO'],
   ]
   campos.forEach((k, i) => {
     ws.getCell(i + 3, 1).value = k[0]; ws.getCell(i + 3, 1).font = { bold: true, size: 10 }

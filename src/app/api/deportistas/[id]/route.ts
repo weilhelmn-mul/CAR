@@ -27,7 +27,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         apellidoMaterno: b.apellidoMaterno !== undefined ? String(b.apellidoMaterno).toUpperCase() : undefined,
         nombres: b.nombres !== undefined ? String(b.nombres).toUpperCase() : undefined,
         dni: b.dni !== undefined ? String(b.dni) : undefined,
-        sexo: b.sexo, fechaIngreso: b.fechaIngreso ? new Date(b.fechaIngreso) : null,
+        sexo: b.sexo, fechaIngreso: b.fechaIngreso !== undefined ? (b.fechaIngreso ? new Date(b.fechaIngreso) : null) : undefined,
         deporte: b.deporte, fechaNacimiento: b.fechaNacimiento ? new Date(b.fechaNacimiento) : undefined,
         nivelTecnico: b.nivelTecnico, modalidad: b.modalidad,
         telefono: b.telefono !== undefined ? (b.telefono ? String(b.telefono) : null) : undefined,

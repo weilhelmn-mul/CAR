@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Pencil, Trash2, UserSearch, Filter, Columns3, X, ArrowUp, ArrowDown, ArrowUpDown, FileText, ClipboardList } from 'lucide-react'
+import { Plus, Pencil, Trash2, UserSearch, Filter, Columns3, X, ArrowUp, ArrowDown, ArrowUpDown, FileText, ClipboardList, Power } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { api, useDeportistas, nombreCompletoUI, estadoAval, calcularEdad, type Deportista, BadgeCat } from './ui-at'
 import { CATEGORIAS, NIVELES, MODALIDADES, DEPORTES, SEXOS, fmtFecha } from '@/lib/periodos'
@@ -21,6 +21,12 @@ const vacio = {
   entrenador: '', activo: true, retirado: false, fechaVencimientoContinuidad: '', fechaCaducidadAval: '',
 }
 type FormDep = typeof vacio
+
+// Estado en 3 niveles: ACTIVO (entrena actualmente) · INACTIVO (temporalmente fuera) · RETIRADO (dejó el CAR)
+const estadoInfo = (d: Pick<Deportista, 'activo' | 'retirado'>) =>
+  d.retirado ? { texto: 'RETIRADO', clase: 'bg-slate-100 text-slate-500' }
+  : d.activo ? { texto: 'ACTIVO', clase: 'bg-green-100 text-green-800' }
+  : { texto: 'INACTIVO', clase: 'bg-amber-100 text-amber-800' }
 
 // ====== VARIABLES (COLUMNAS) QUE EL USUARIO PUEDE MOSTRAR U OCULTAR ======
 type ColKey =
@@ -43,10 +49,10 @@ const COLUMNAS: { key: ColKey; etiqueta: string; porDefecto: boolean }[] = [
   { key: 'procedencia', etiqueta: 'Procedencia', porDefecto: false },
   { key: 'telefono', etiqueta: 'Teléfono', porDefecto: false },
   { key: 'entrenador', etiqueta: 'Entrenador', porDefecto: true },
-  { key: 'estado', etiqueta: 'Estado', porDefecto: false },
+  { key: 'estado', etiqueta: 'Estado', porDefecto: true },
 ]
 
-const LS_COLUMNAS = 'at-deportistas-columnas'
+const LS_COLUMNAS = 'at-deportistas-columnas-v2'
 const ETIQUETA_EXTRA: Record<string, string> = { nombres: 'Apellidos y nombres' }
 const etiquetaDe = (k: string) => COLUMNAS.find((c) => c.key === k)?.etiqueta ?? ETIQUETA_EXTRA[k] ?? k
 
@@ -118,7 +124,7 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
       case 'procedencia': return d.procedencia
       case 'telefono': return d.telefono ?? ''
       case 'entrenador': return d.entrenador ?? ''
-      case 'estado': return d.retirado ? 1 : 0
+      case 'estado': return d.retirado ? 2 : d.activo ? 0 : 1
       default: return ''
     }
   }
@@ -137,7 +143,8 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
       if (fPad === 'si' && !d.pad) return false
       if (fPad === 'no' && d.pad) return false
       if (fAval !== 'todos' && estadoAval(d.fechaCaducidadAval).texto !== fAval) return false
-      if (fEstado === 'activos' && d.retirado) return false
+      if (fEstado === 'activos' && (d.retirado || !d.activo)) return false
+      if (fEstado === 'inactivos' && (d.retirado || d.activo)) return false
       if (fEstado === 'retirados' && !d.retirado) return false
       const e = calcularEdad(d.fechaNacimiento)
       if (min !== null && !isNaN(min) && (e === null || e < min)) return false
@@ -218,6 +225,24 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
     }
   }
 
+  const alternarActivo = async (d: Deportista) => {
+    const body = d.retirado ? { retirado: false, activo: true } : { activo: !d.activo }
+    try {
+      await api(`/api/deportistas/${d.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      toast({
+        title: d.retirado ? `${nombreCompletoUI(d)} reactivado` : d.activo ? `${nombreCompletoUI(d)} → INACTIVO` : `${nombreCompletoUI(d)} → ACTIVO`,
+        description: d.retirado
+          ? 'Vuelve al grupo activo del CAR.'
+          : d.activo
+            ? 'Queda fuera del grupo activo (formatos, alimentación y análisis activos lo excluyen).'
+            : 'Vuelve al grupo activo del CAR.',
+      })
+      recargar()
+    } catch (e) {
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })
+    }
+  }
+
   const set = (k: keyof FormDep, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }))
 
   const visiblesList = COLUMNAS.filter((c) => visibles.has(c.key))
@@ -261,9 +286,10 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
       case 'procedencia': return <span className="text-sm">{d.procedencia}</span>
       case 'telefono': return <span className="text-sm">{d.telefono ?? '—'}</span>
       case 'entrenador': return <span className="text-sm text-slate-600">{d.entrenador ?? '—'}</span>
-      case 'estado': return d.retirado
-        ? <span className="text-xs font-bold text-slate-500">RETIRADO</span>
-        : <span className="text-xs font-bold text-green-700">ACTIVO</span>
+      case 'estado': {
+        const ei = estadoInfo(d)
+        return <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-bold ${ei.clase}`}>{ei.texto}</span>
+      }
       default: return null
     }
   }
@@ -356,6 +382,7 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
                 <SelectContent>
                   <SelectItem value="todos">TODOS</SelectItem>
                   <SelectItem value="activos">ACTIVOS</SelectItem>
+                  <SelectItem value="inactivos">INACTIVOS</SelectItem>
                   <SelectItem value="retirados">RETIRADOS</SelectItem>
                 </SelectContent>
               </Select>
@@ -393,11 +420,13 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
             {cargando && <TableRow><TableCell colSpan={colSpan} className="py-8 text-center text-slate-500">Cargando…</TableCell></TableRow>}
             {!cargando && filtrados.length === 0 && <TableRow><TableCell colSpan={colSpan} className="py-8 text-center text-slate-500">Sin resultados</TableCell></TableRow>}
             {filtrados.map((d, i) => (
-              <TableRow key={d.id} className={d.retirado ? 'opacity-50' : ''}>
+              <TableRow key={d.id} className={d.retirado ? 'opacity-50' : !d.activo ? 'opacity-70' : ''}>
                 <TableCell className="px-2 text-xs text-slate-500">{i + 1}</TableCell>
                 <TableCell className="px-2 text-sm font-medium">{nombreCompletoUI(d)}</TableCell>
                 {visiblesList.map((c) => <TableCell key={c.key} className="px-2">{celda(d, c.key)}</TableCell>)}
                 <TableCell className="whitespace-nowrap px-2 text-right">
+                  <Button size="icon" variant="ghost" title={d.retirado ? 'Reactivar (volver a ACTIVO)' : d.activo ? 'Pasar a INACTIVO' : 'Pasar a ACTIVO'}
+                    className={`h-7 w-7 ${d.retirado ? 'text-slate-400' : d.activo ? 'text-green-700' : 'text-amber-600'}`} onClick={() => alternarActivo(d)}><Power className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" title="Ficha 360°" className="h-7 w-7 text-red-900" onClick={() => setDepIdFicha(d.id)}><FileText className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" title="Editar" className="h-7 w-7" onClick={() => abrirEdicion(d)}><Pencil className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" title="Eliminar" className="h-7 w-7 text-red-600" onClick={() => eliminar(d)}><Trash2 className="h-4 w-4" /></Button>
@@ -413,7 +442,7 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
         {cargando && <p className="py-8 text-center text-sm text-slate-500">Cargando…</p>}
         {!cargando && filtrados.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Sin resultados</p>}
         {filtrados.map((d, i) => (
-          <div key={d.id} className={`rounded-xl border bg-white p-3 shadow-sm ${d.retirado ? 'opacity-50' : ''}`}>
+          <div key={d.id} className={`rounded-xl border bg-white p-3 shadow-sm ${d.retirado ? 'opacity-50' : !d.activo ? 'opacity-70' : ''}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-slate-800">{i + 1}. {nombreCompletoUI(d)}</p>
@@ -430,10 +459,12 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
               <span className={`rounded px-1.5 py-0.5 font-bold ${estadoAval(d.fechaCaducidadAval).clase}`}>{estadoAval(d.fechaCaducidadAval).texto}</span>
               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Ingreso: {fmtFecha(d.fechaIngreso) || '—'}</span>
               {d.fechaVencimientoContinuidad && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Continuidad: {fmtFecha(d.fechaVencimientoContinuidad)}</span>}
-              {d.retirado && <span className="rounded bg-slate-200 px-1.5 py-0.5 font-bold text-slate-600">RETIRADO</span>}
+              <span className={`rounded px-1.5 py-0.5 font-bold ${estadoInfo(d).clase}`}>{estadoInfo(d).texto}</span>
             </div>
             <div className="mt-2.5 flex gap-1.5 border-t pt-2">
               <Button size="sm" variant="outline" className="h-7 flex-1 text-xs text-red-900" onClick={() => setDepIdFicha(d.id)}><ClipboardList className="h-3.5 w-3.5" /> Ficha 360°</Button>
+              <Button size="sm" variant="outline" title={d.retirado ? 'Reactivar (volver a ACTIVO)' : d.activo ? 'Pasar a INACTIVO' : 'Pasar a ACTIVO'}
+                className={`h-7 w-9 p-0 ${d.retirado ? 'text-slate-400' : d.activo ? 'text-green-700' : 'text-amber-600'}`} onClick={() => alternarActivo(d)}><Power className="h-3.5 w-3.5" /></Button>
               <Button size="sm" variant="outline" title="Editar" className="h-7 w-9 p-0" onClick={() => abrirEdicion(d)}><Pencil className="h-3.5 w-3.5" /></Button>
               <Button size="sm" variant="outline" title="Eliminar" className="h-7 w-9 p-0 text-red-600" onClick={() => eliminar(d)}><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
@@ -472,6 +503,17 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
             <label className="grid gap-1 text-xs font-medium text-slate-600">Modalidad
               <Select value={form.modalidad} onValueChange={(v) => set('modalidad', v)}><SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{MODALIDADES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-slate-600">Estado
+              <Select value={form.retirado ? 'RETIRADO' : form.activo ? 'ACTIVO' : 'INACTIVO'}
+                onValueChange={(v) => setForm((f) => ({ ...f, retirado: v === 'RETIRADO', activo: v === 'ACTIVO' }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVO">ACTIVO — entrena actualmente</SelectItem>
+                  <SelectItem value="INACTIVO">INACTIVO — temporalmente fuera</SelectItem>
+                  <SelectItem value="RETIRADO">RETIRADO — dejó el CAR</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             <label className="grid gap-1 text-xs font-medium text-slate-600 sm:col-span-2">
               Distrito / provincia de procedencia
