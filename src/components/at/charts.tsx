@@ -34,7 +34,7 @@ export function TooltipEst(props: Omit<TooltipProps<number, string>, 'cursor'> &
 
 // ===== Eje Y compartido (enteros, sin línea) =====
 const EjeY = ({ ancho = 26 }: { ancho?: number }) => (
-  <YAxis allowDecimals={false} axisLine={false} tickLine={false} width={ancho} tick={{ fontSize: 10, fill: GRIS_TEXTO }} />
+  <YAxis allowDecimals={false} axisLine={false} tickLine={false} width={ancho} tick={{ fontSize: 11, fill: GRIS_TEXTO }} />
 )
 
 // ===== Gráfico de barras verticales (1 serie) =====
@@ -60,14 +60,14 @@ export function GraficoBarras({
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRIS_GRID} />
           <XAxis
             dataKey="clave" interval={0} axisLine={{ stroke: '#e2e8f0' }} tickLine={false}
-            tick={{ fontSize: 10, fill: GRIS_TEXTO }} angle={rotar ? -28 : 0} textAnchor={rotar ? 'end' : 'middle'} height={rotar ? 34 : 26}
+            tick={{ fontSize: 11, fill: GRIS_TEXTO }} angle={rotar ? -28 : 0} textAnchor={rotar ? 'end' : 'middle'} height={rotar ? 34 : 26}
             tickFormatter={formatoX}
           />
           <EjeY />
           <TooltipEst />
           <Bar dataKey="total" name="Deportistas" radius={[4, 4, 0, 0]} maxBarSize={46}>
             {data.map((_, i) => <Cell key={i} fill={colores ? colores[i % colores.length] : color} />)}
-            {mostrarValores && <LabelList dataKey="total" position="top" formatter={(v: number) => (ocultarCeros && v === 0 ? '' : v)} style={{ fontSize: 10, fontWeight: 700, fill: '#475569' }} />}
+            {mostrarValores && <LabelList dataKey="total" position="top" formatter={(v: number) => (ocultarCeros && v === 0 ? '' : v)} style={{ fontSize: 11, fontWeight: 700, fill: '#475569' }} />}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -79,7 +79,7 @@ export function GraficoBarras({
 export const LeyendaLineas = ({ items }: { items: { clave: string; color: string }[] }) => (
   <div className="flex flex-wrap justify-center gap-1.5 pt-1">
     {items.map((x) => (
-      <span key={x.clave} className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+      <span key={x.clave} className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
         <span className="h-1.5 w-3 shrink-0 rounded-full" style={{ background: x.color }} /><span className="truncate">{x.clave}</span>
       </span>
     ))}

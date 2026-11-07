@@ -78,7 +78,7 @@ export default function FormatoF1() {
       <div className="flex flex-wrap items-center gap-2">
         <SelectorMes valor={mes} onChange={setMes} />
         <span className="text-sm font-medium text-slate-600">CAR CUSCO · {etiquetaMes(mes)}</span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <BotonIA onClick={generarTextos} cargando={iaCargando}><Table2 className="h-4 w-4" /> Redactar secciones con IA</BotonIA>
           <Button size="sm" className="bg-red-800 hover:bg-red-900" onClick={guardar}><Save className="h-4 w-4" /> Guardar</Button>
           <BotonesExportar params={{ tipo: 'f1', periodo: mes }} nombreBase={`FORMATO AT-F1 CAR - ${etiquetaMes(mes)}`} />

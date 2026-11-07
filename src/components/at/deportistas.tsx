@@ -36,7 +36,7 @@ type ColKey =
 const COLUMNAS: { key: ColKey; etiqueta: string; porDefecto: boolean }[] = [
   { key: 'dni', etiqueta: 'DNI', porDefecto: true },
   { key: 'edad', etiqueta: 'Edad', porDefecto: true },
-  { key: 'fechaNacimiento', etiqueta: 'F. nacimiento', porDefecto: false },
+  { key: 'fechaNacimiento', etiqueta: 'F. nacimiento', porDefecto: true },
   { key: 'categoria', etiqueta: 'Categoría', porDefecto: true },
   { key: 'sexo', etiqueta: 'Sexo', porDefecto: true },
   { key: 'deporte', etiqueta: 'Deporte / prueba', porDefecto: true },
@@ -52,7 +52,7 @@ const COLUMNAS: { key: ColKey; etiqueta: string; porDefecto: boolean }[] = [
   { key: 'estado', etiqueta: 'Estado', porDefecto: true },
 ]
 
-const LS_COLUMNAS = 'at-deportistas-columnas-v2'
+const LS_COLUMNAS = 'at-deportistas-columnas-v3'
 const ETIQUETA_EXTRA: Record<string, string> = { nombres: 'Apellidos y nombres' }
 const etiquetaDe = (k: string) => COLUMNAS.find((c) => c.key === k)?.etiqueta ?? ETIQUETA_EXTRA[k] ?? k
 
@@ -452,6 +452,7 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
               <span className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700">{calcularEdad(d.fechaNacimiento) ?? '—'} años</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Nac.: {fmtFecha(d.fechaNacimiento) || '—'}</span>
               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.sexo === 'FEMENINO' ? 'F' : 'M'}</span>
               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.deporte}{d.prueba ? ` · ${d.prueba}` : ''}</span>
               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.modalidad}</span>

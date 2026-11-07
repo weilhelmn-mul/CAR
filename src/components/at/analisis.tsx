@@ -70,7 +70,7 @@ export default function Analisis() {
         </div>
         {tipo === 'ANUAL' ? <SelectorMes valor={mes} onChange={setMes} incluirAnio /> : <SelectorMes valor={mes} onChange={setMes} />}
         {est && <span className="text-sm font-medium text-slate-600">{est.etiqueta}</span>}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <BotonIA onClick={generarInforme} cargando={iaCargando}><Table2 className="h-4 w-4" /> Informe técnico IA</BotonIA>
           <BotonesExportar params={params} nombreBase={`ANALISIS DEPORTIVO - ${est?.etiqueta ?? ref}`} />
         </div>

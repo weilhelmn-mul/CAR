@@ -95,8 +95,8 @@ export default function Rendimiento() {
   const invertirEje = variable === 'mejorPuesto' // puesto 1 es mejor
 
   // estilo compartido de ejes para los gráficos de líneas (limpio y legible en PC y celular)
-  const ejeX = <XAxis dataKey="mes" axisLine={{ stroke: '#e2e8f0' }} tickLine={false} interval="preserveStartEnd" tick={{ fontSize: 10, fill: '#64748b' }} />
-  const ejeY = (invertir: boolean) => <YAxis reversed={invertir} axisLine={false} tickLine={false} width={34} domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#64748b' }} />
+  const ejeX = <XAxis dataKey="mes" axisLine={{ stroke: '#e2e8f0' }} tickLine={false} interval="preserveStartEnd" tick={{ fontSize: 11, fill: '#64748b' }} />
+  const ejeY = (invertir: boolean) => <YAxis reversed={invertir} axisLine={false} tickLine={false} width={34} domain={['auto', 'auto']} tick={{ fontSize: 11, fill: '#64748b' }} />
   const grid = <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
 
   return (

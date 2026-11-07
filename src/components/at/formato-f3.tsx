@@ -67,7 +67,7 @@ export default function FormatoF3() {
         </select>
         <SelectorMes valor={mes} onChange={setMes} />
         {dep && <span className="text-sm text-slate-500">{dep.deporte} · {dep.prueba ?? 's/prueba'} · {dep.entrenador ?? 's/entrenador'}</span>}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button size="sm" className="bg-red-800 hover:bg-red-900" disabled={!depId} onClick={guardar}><Save className="h-4 w-4" /> Guardar</Button>
           <BotonesExportar params={{ tipo: 'f3', depId: String(depId ?? ''), periodo: mes }} nombreBase={`FORMATO AT-F3 - ${dep ? nombreCompletoUI(dep) : ''} - ${etiquetaMes(mes)}`} />
         </div>

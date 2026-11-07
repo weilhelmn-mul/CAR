@@ -54,7 +54,7 @@ export default function FormatoAlimentacion() {
           <button className={`px-3 py-2 text-sm font-semibold ${qn === 'Q2' ? 'bg-red-800 text-white' : 'bg-white'}`} onClick={() => setQn('Q2')}>16 AL FIN DE MES</button>
         </div>
         <span className="text-sm font-medium text-slate-600">{q.etiqueta}</span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button size="sm" className="bg-red-800 hover:bg-red-900" disabled={guardando} onClick={guardar}><Save className="h-4 w-4" /> {guardando ? 'Guardando…' : 'Guardar'}</Button>
           <BotonesExportar params={{ tipo: 'alimentacion', periodo }} nombreBase={`ALIMENTACIÓN ${q.etiquetaCorta} ${q.anio}`} />
         </div>
@@ -64,8 +64,8 @@ export default function FormatoAlimentacion() {
         <div className="border-b bg-red-50 px-4 py-2">
           <p className="text-center text-sm font-bold uppercase text-red-900">Lista de deportistas CAR Cusco — programación del servicio de alimentación {q.etiqueta}</p>
         </div>
-        <div className="max-h-[60vh] overflow-y-auto">
-          <Table>
+        <div className="max-h-[60vh] overflow-auto">
+          <Table className="min-w-[680px]">
             <TableHeader><TableRow className="bg-white">
               {['N°', 'CAR', 'APELLIDO PATERNO', 'APELLIDO MATERNO', 'NOMBRES', 'CUMPLEAÑOS', q.etiquetaCorta, 'OBSERVACIONES'].map((h) => (
                 <TableHead key={h} className="text-red-900">{h}</TableHead>
