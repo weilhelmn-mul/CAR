@@ -43,7 +43,7 @@ export default function FormatoF1() {
     setIaCargando(true)
     try {
       const f3s = filas.filter((f) => f.asistencia != null)
-      const prom = (arr: (number | null)[]) => arr.length ? Math.round((arr.reduce((a, x) => a + (x ?? 0), 0) / arr.length) * 10) / 10 : null
+      const prom = (arr: (number | null)[]) => arr.length ? Math.round((arr.reduce<number>((a, x) => a + (x ?? 0), 0) / arr.length) * 10) / 10 : null
       const r = await api<{ json: Record<string, string> }>('/api/ia', {
         method: 'POST',
         body: JSON.stringify({

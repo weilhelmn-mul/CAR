@@ -64,7 +64,7 @@ export default function Ficha360({ depId, onClose }: { depId: number | null; onC
     try {
       await api('/api/resultados', { method: 'POST', body: JSON.stringify({ ...formRes, deportistaId: depId, marcaValor: Number(formRes.marcaValor) }) })
       toast({ title: 'Resultado registrado' })
-      setFormRes({ ...nuevoRes, prueba: dep.prueba ?? '' })
+      setFormRes({ ...nuevoRes, prueba: dep?.prueba ?? '' })
       setDep(await api<Dep>(`/api/deportistas/${depId}`))
     } catch (e) {
       toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })

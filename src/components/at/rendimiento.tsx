@@ -2,9 +2,10 @@
 
 // ANÁLISIS DE RENDIMIENTO — serie mensual, comparación interanual, tendencia, consistencia y exportación
 import { useEffect, useState } from 'react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { Loader2 } from 'lucide-react'
 import { Kpi, TituloSeccion, api, useDeportistas, BotonesExportar } from './ui-at'
+import { TooltipEst, LeyendaLineas, GraficoBarras } from './charts'
 import { MESES_ES } from '@/lib/periodos'
 
 type Resumen = { pruebas: string[]; anios: number[] }
@@ -93,6 +94,11 @@ export default function Rendimiento() {
 
   const invertirEje = variable === 'mejorPuesto' // puesto 1 es mejor
 
+  // estilo compartido de ejes para los gráficos de líneas (limpio y legible en PC y celular)
+  const ejeX = <XAxis dataKey="mes" axisLine={{ stroke: '#e2e8f0' }} tickLine={false} interval="preserveStartEnd" tick={{ fontSize: 10, fill: '#64748b' }} />
+  const ejeY = (invertir: boolean) => <YAxis reversed={invertir} axisLine={false} tickLine={false} width={34} domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#64748b' }} />
+  const grid = <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+
   return (
     <div className="space-y-4">
       {/* ===== Selectores ===== */}
@@ -160,55 +166,49 @@ export default function Rendimiento() {
             }>
               Serie mensual {anio} — {VARIABLES.find((v) => v.key === variable)?.etiqueta.toLowerCase()} por mes
             </TituloSeccion>
-            <div className="h-64">
+            <div className="h-56 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={serieConTend} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                  <YAxis reversed={invertirEje} tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="valor" name={VARIABLES.find((v) => v.key === variable)?.etiqueta} stroke="#b91c1c" strokeWidth={3} dot={{ r: 4 }} connectNulls />
+                <LineChart data={serieConTend} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
+                  {grid}
+                  {ejeX}
+                  {ejeY(invertirEje)}
+                  <TooltipEst />
+                  <Line type="monotone" dataKey="valor" name={VARIABLES.find((v) => v.key === variable)?.etiqueta} stroke="#b91c1c" strokeWidth={3} dot={{ r: 4, strokeWidth: 0, fill: '#b91c1c' }} connectNulls activeDot={{ r: 5 }} />
                   {variable === 'mejorValor' && <Line type="monotone" dataKey="promedio" name="Promedio del mes" stroke="#7c2d12" strokeWidth={2} strokeDasharray="6 3" dot={false} connectNulls />}
                   <Line type="monotone" dataKey="tendencia" name="Tendencia (regresión)" stroke="#0284c7" strokeWidth={2} dot={false} connectNulls strokeDasharray="2 4" />
                 </LineChart>
               </ResponsiveContainer>
+              <LeyendaLineas items={[
+                { clave: VARIABLES.find((v) => v.key === variable)?.etiqueta ?? '', color: '#b91c1c' },
+                ...(variable === 'mejorValor' ? [{ clave: 'Promedio del mes', color: '#7c2d12' }] : []),
+                { clave: 'Tendencia (regresión)', color: '#0284c7' },
+              ]} />
             </div>
           </div>
 
           {/* ===== Comparación interanual ===== */}
           <div className="rounded-xl border bg-white p-4 shadow-sm">
             <TituloSeccion>Comparación interanual — mejor marca de cada mes por año</TituloSeccion>
-            <div className="h-64">
+            <div className="h-56 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={filasAnios} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
-                  <Tooltip />
-                  <Legend />
+                <LineChart data={filasAnios} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
+                  {grid}
+                  {ejeX}
+                  {ejeY(false)}
+                  <TooltipEst />
                   {aniosOrden.map((a, i) => (
-                    <Line key={a} type="monotone" dataKey={a} name={`AÑO ${a}`} stroke={['#b91c1c', '#ea580c', '#ca8a04', '#166534', '#57534e', '#0284c7'][i % 6]} strokeWidth={2.5} connectNulls dot={{ r: 3 }} />
+                    <Line key={a} type="monotone" dataKey={a} name={`AÑO ${a}`} stroke={['#b91c1c', '#ea580c', '#ca8a04', '#166534', '#57534e', '#0284c7'][i % 6]} strokeWidth={2.5} connectNulls dot={{ r: 3 }} activeDot={{ r: 5 }} />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
+              <LeyendaLineas items={aniosOrden.map((a, i) => ({ clave: `AÑO ${a}`, color: ['#b91c1c', '#ea580c', '#ca8a04', '#166534', '#57534e', '#0284c7'][i % 6] }))} />
             </div>
           </div>
 
           {/* ===== Participaciones por mes ===== */}
           <div className="rounded-xl border bg-white p-4 shadow-sm">
             <TituloSeccion>Carga de competencias — registros por mes ({anio})</TituloSeccion>
-            <div className="h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analisis.meses.map((m) => ({ mes: m.mesNombre.slice(0, 3), n: m.n }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="n" name="Registros" fill="#b91c1c" radius={[5, 5, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <GraficoBarras data={analisis.meses.map((m) => ({ clave: m.mesNombre.slice(0, 3), total: m.n }))} color="#b91c1c" alto="h-40 sm:h-44" ocultarCeros />
           </div>
 
           {/* ===== Tabla de registros del año ===== */}
@@ -217,7 +217,7 @@ export default function Rendimiento() {
               Registros del año — {analisis.prueba} (Δ% respecto a la PB)
             </TituloSeccion>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full min-w-[680px] text-xs">
                 <thead>
                   <tr className="bg-red-50 text-left text-red-900">
                     {['N°', 'FECHA', 'COMPETENCIA', 'SEDE', 'NIVEL', 'MARCA', 'PUESTO', 'Δ vs PB'].map((h) => <th key={h} className="border px-2 py-1.5 font-bold">{h}</th>)}

@@ -1,0 +1,538 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useMemo, useState } from 'react'
+     4→import { Button } from '@/components/ui/button'
+     5→import { Input } from '@/components/ui/input'
+     6→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+     7→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+     8→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+     9→import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+    10→import { Checkbox } from '@/components/ui/checkbox'
+    11→import { Plus, Pencil, Trash2, UserSearch, Filter, Columns3, X, ArrowUp, ArrowDown, ArrowUpDown, FileText, ClipboardList, Power } from 'lucide-react'
+    12→import { toast } from '@/hooks/use-toast'
+    13→import { api, useDeportistas, nombreCompletoUI, estadoAval, calcularEdad, type Deportista, BadgeCat } from './ui-at'
+    14→import { CATEGORIAS, NIVELES, MODALIDADES, DEPORTES, SEXOS, fmtFecha } from '@/lib/periodos'
+    15→import Ficha360 from './ficha'
+    16→
+    17→const vacio = {
+    18→  apellidoPaterno: '', apellidoMaterno: '', nombres: '', dni: '', sexo: 'MASCULINO',
+    19→  fechaNacimiento: '', fechaIngreso: '', deporte: 'ATLETISMO', prueba: '', nivelTecnico: 'DC',
+    20→  modalidad: 'INTERNO', categoria: 'U-18', telefono: '', procedencia: '', pad: false,
+    21→  entrenador: '', activo: true, retirado: false, fechaVencimientoContinuidad: '', fechaCaducidadAval: '',
+    22→}
+    23→type FormDep = typeof vacio
+    24→
+    25→// Estado en 3 niveles: ACTIVO (entrena actualmente) · INACTIVO (temporalmente fuera) · RETIRADO (dejó el CAR)
+    26→const estadoInfo = (d: Pick<Deportista, 'activo' | 'retirado'>) =>
+    27→  d.retirado ? { texto: 'RETIRADO', clase: 'bg-slate-100 text-slate-500' }
+    28→  : d.activo ? { texto: 'ACTIVO', clase: 'bg-green-100 text-green-800' }
+    29→  : { texto: 'INACTIVO', clase: 'bg-amber-100 text-amber-800' }
+    30→
+    31→// ====== VARIABLES (COLUMNAS) QUE EL USUARIO PUEDE MOSTRAR U OCULTAR ======
+    32→type ColKey =
+    33→  | 'dni' | 'edad' | 'fechaNacimiento' | 'categoria' | 'sexo' | 'deporte' | 'nivelTecnico'
+    34→  | 'modalidad' | 'ingreso' | 'continuidad' | 'aval' | 'pad' | 'procedencia' | 'telefono' | 'entrenador' | 'estado'
+    35→
+    36→const COLUMNAS: { key: ColKey; etiqueta: string; porDefecto: boolean }[] = [
+    37→  { key: 'dni', etiqueta: 'DNI', porDefecto: true },
+    38→  { key: 'edad', etiqueta: 'Edad', porDefecto: true },
+    39→  { key: 'fechaNacimiento', etiqueta: 'F. nacimiento', porDefecto: false },
+    40→  { key: 'categoria', etiqueta: 'Categoría', porDefecto: true },
+    41→  { key: 'sexo', etiqueta: 'Sexo', porDefecto: true },
+    42→  { key: 'deporte', etiqueta: 'Deporte / prueba', porDefecto: true },
+    43→  { key: 'nivelTecnico', etiqueta: 'Nivel técnico', porDefecto: false },
+    44→  { key: 'modalidad', etiqueta: 'Modalidad', porDefecto: true },
+    45→  { key: 'ingreso', etiqueta: 'Ingreso', porDefecto: true },
+    46→  { key: 'continuidad', etiqueta: 'Vence continuidad', porDefecto: true },
+    47→  { key: 'aval', etiqueta: 'Aval médico', porDefecto: true },
+    48→  { key: 'pad', etiqueta: 'PAD', porDefecto: true },
+    49→  { key: 'procedencia', etiqueta: 'Procedencia', porDefecto: false },
+    50→  { key: 'telefono', etiqueta: 'Teléfono', porDefecto: false },
+    51→  { key: 'entrenador', etiqueta: 'Entrenador', porDefecto: true },
+    52→  { key: 'estado', etiqueta: 'Estado', porDefecto: true },
+    53→]
+    54→
+    55→const LS_COLUMNAS = 'at-deportistas-columnas-v2'
+    56→const ETIQUETA_EXTRA: Record<string, string> = { nombres: 'Apellidos y nombres' }
+    57→const etiquetaDe = (k: string) => COLUMNAS.find((c) => c.key === k)?.etiqueta ?? ETIQUETA_EXTRA[k] ?? k
+    58→
+    59→export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha: number | null; setDepIdFicha: (v: number | null) => void }) {
+    60→  const { lista, cargando, recargar } = useDeportistas()
+    61→  const [q, setQ] = useState('')
+    62→  const [fCategoria, setFCategoria] = useState('todas')
+    63→  const [fSexo, setFSexo] = useState('todos')
+    64→  const [fModalidad, setFModalidad] = useState('todas')
+    65→  // Filtros avanzados
+    66→  const [verFiltros, setVerFiltros] = useState(false)
+    67→  const [fDeporte, setFDeporte] = useState('todos')
+    68→  const [fNivel, setFNivel] = useState('todos')
+    69→  const [fPad, setFPad] = useState('todos') // todos | si | no
+    70→  const [fAval, setFAval] = useState('todos') // todos | VIGENTE | POR VENCER | EXPIRADO | SIN REGISTRO
+    71→  const [fEstado, setFEstado] = useState('todos') // todos | activos | retirados
+    72→  const [edadMin, setEdadMin] = useState('')
+    73→  const [edadMax, setEdadMax] = useState('')
+    74→  // Ordenamiento
+    75→  const [orden, setOrden] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
+    76→  // Columnas visibles (elección del usuario, persistente)
+    77→  const [visibles, setVisibles] = useState<Set<ColKey>>(new Set(COLUMNAS.filter((c) => c.porDefecto).map((c) => c.key)))
+    78→  useEffect(() => {
+    79→    try {
+    80→      const raw = localStorage.getItem(LS_COLUMNAS)
+    81→      if (raw) {
+    82→        const arr = JSON.parse(raw) as ColKey[]
+    83→        setVisibles(new Set(COLUMNAS.filter((c) => arr.includes(c.key)).map((c) => c.key)))
+    84→      }
+    85→    } catch { /* usa valores por defecto */ }
+    86→  }, [])
+    87→  const toggleColumna = (k: ColKey, activo: boolean) => {
+    88→    setVisibles((prev) => {
+    89→      const nx = new Set(prev)
+    90→      if (activo) nx.add(k); else nx.delete(k)
+    91→      try { localStorage.setItem(LS_COLUMNAS, JSON.stringify([...nx])) } catch { /* sin persistencia */ }
+    92→      return nx
+    93→    })
+    94→  }
+    95→  const restaurarColumnas = () => {
+    96→    const base = new Set(COLUMNAS.filter((c) => c.porDefecto).map((c) => c.key))
+    97→    setVisibles(base)
+    98→    try { localStorage.setItem(LS_COLUMNAS, JSON.stringify([...base])) } catch { /* sin persistencia */ }
+    99→  }
+   100→
+   101→  const [dialogo, setDialogo] = useState(false)
+   102→  const [editando, setEditando] = useState<Deportista | null>(null)
+   103→  const [form, setForm] = useState<FormDep>(vacio)
+   104→  const [guardando, setGuardando] = useState(false)
+   105→
+   106→  const cambiarOrden = (key: string) =>
+   107→    setOrden((o) => (o?.key === key ? (o.dir === 'asc' ? { key, dir: 'desc' } : null) : { key, dir: 'asc' }))
+   108→
+   109→  const valorOrden = (d: Deportista, key: string): string | number => {
+   110→    switch (key) {
+   111→      case 'nombres': return nombreCompletoUI(d).toLowerCase()
+   112→      case 'dni': return d.dni
+   113→      case 'edad': return calcularEdad(d.fechaNacimiento) ?? -1
+   114→      case 'fechaNacimiento': return d.fechaNacimiento?.slice(0, 10) ?? ''
+   115→      case 'categoria': return d.categoria
+   116→      case 'sexo': return d.sexo
+   117→      case 'deporte': return d.deporte
+   118→      case 'nivelTecnico': return d.nivelTecnico
+   119→      case 'modalidad': return d.modalidad
+   120→      case 'ingreso': return d.fechaIngreso?.slice(0, 10) ?? ''
+   121→      case 'continuidad': return d.fechaVencimientoContinuidad?.slice(0, 10) ?? ''
+   122→      case 'aval': return d.fechaCaducidadAval?.slice(0, 10) ?? ''
+   123→      case 'pad': return d.pad ? 1 : 0
+   124→      case 'procedencia': return d.procedencia
+   125→      case 'telefono': return d.telefono ?? ''
+   126→      case 'entrenador': return d.entrenador ?? ''
+   127→      case 'estado': return d.retirado ? 2 : d.activo ? 0 : 1
+   128→      default: return ''
+   129→    }
+   130→  }
+   131→
+   132→  const filtrados = useMemo(() => {
+   133→    const t = q.trim().toLowerCase()
+   134→    const min = edadMin === '' ? null : Number(edadMin)
+   135→    const max = edadMax === '' ? null : Number(edadMax)
+   136→    let f = lista.filter((d) => {
+   137→      if (t && !`${d.apellidoPaterno} ${d.apellidoMaterno} ${d.nombres} ${d.dni}`.toLowerCase().includes(t)) return false
+   138→      if (fCategoria !== 'todas' && d.categoria !== fCategoria) return false
+   139→      if (fSexo !== 'todos' && d.sexo !== fSexo) return false
+   140→      if (fModalidad !== 'todas' && d.modalidad !== fModalidad) return false
+   141→      if (fDeporte !== 'todos' && d.deporte !== fDeporte) return false
+   142→      if (fNivel !== 'todos' && d.nivelTecnico !== fNivel) return false
+   143→      if (fPad === 'si' && !d.pad) return false
+   144→      if (fPad === 'no' && d.pad) return false
+   145→      if (fAval !== 'todos' && estadoAval(d.fechaCaducidadAval).texto !== fAval) return false
+   146→      if (fEstado === 'activos' && (d.retirado || !d.activo)) return false
+   147→      if (fEstado === 'inactivos' && (d.retirado || d.activo)) return false
+   148→      if (fEstado === 'retirados' && !d.retirado) return false
+   149→      const e = calcularEdad(d.fechaNacimiento)
+   150→      if (min !== null && !isNaN(min) && (e === null || e < min)) return false
+   151→      if (max !== null && !isNaN(max) && (e === null || e > max)) return false
+   152→      return true
+   153→    })
+   154→    if (orden) {
+   155→      const { key, dir } = orden
+   156→      const s = dir === 'asc' ? 1 : -1
+   157→      f = [...f].sort((a, b) => {
+   158→        const va = valorOrden(a, key), vb = valorOrden(b, key)
+   159→        const vacioA = va === '' || va === -1, vacioB = vb === '' || vb === -1
+   160→        if (vacioA && vacioB) return 0
+   161→        if (vacioA) return 1 // vacíos al final siempre
+   162→        if (vacioB) return -1
+   163→        if (va < vb) return -1 * s
+   164→        if (va > vb) return 1 * s
+   165→        return 0
+   166→      })
+   167→    }
+   168→    return f
+   169→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   170→  }, [lista, q, fCategoria, fSexo, fModalidad, fDeporte, fNivel, fPad, fAval, fEstado, edadMin, edadMax, orden])
+   171→
+   172→  const numFiltros = [q, fCategoria, fSexo, fModalidad, fDeporte, fNivel, fPad, fAval, fEstado, edadMin, edadMax]
+   173→    .filter((v) => v !== '' && v !== 'todos' && v !== 'todas').length
+   174→
+   175→  const limpiarFiltros = () => {
+   176→    setQ(''); setFCategoria('todas'); setFSexo('todos'); setFModalidad('todas')
+   177→    setFDeporte('todos'); setFNivel('todos'); setFPad('todos'); setFAval('todos'); setFEstado('todos')
+   178→    setEdadMin(''); setEdadMax(''); setOrden(null)
+   179→  }
+   180→
+   181→  const abrirNuevo = () => { setEditando(null); setForm(vacio); setDialogo(true) }
+   182→  const abrirEdicion = (d: Deportista) => {
+   183→    setEditando(d)
+   184→    setForm({
+   185→      apellidoPaterno: d.apellidoPaterno, apellidoMaterno: d.apellidoMaterno, nombres: d.nombres, dni: d.dni,
+   186→      sexo: d.sexo, fechaNacimiento: d.fechaNacimiento?.slice(0, 10) ?? '', fechaIngreso: d.fechaIngreso?.slice(0, 10) ?? '',
+   187→      deporte: d.deporte, prueba: d.prueba ?? '', nivelTecnico: d.nivelTecnico, modalidad: d.modalidad,
+   188→      categoria: d.categoria, telefono: d.telefono ?? '', procedencia: d.procedencia, pad: d.pad,
+   189→      entrenador: d.entrenador ?? '', activo: d.activo, retirado: d.retirado,
+   190→      fechaVencimientoContinuidad: d.fechaVencimientoContinuidad?.slice(0, 10) ?? '',
+   191→      fechaCaducidadAval: d.fechaCaducidadAval?.slice(0, 10) ?? '',
+   192→    })
+   193→    setDialogo(true)
+   194→  }
+   195→
+   196→  const guardar = async () => {
+   197→    if (!form.apellidoPaterno || !form.nombres || !form.dni || !form.fechaNacimiento) {
+   198→      toast({ title: 'Datos incompletos', description: 'Apellidos, nombres, DNI y fecha de nacimiento son obligatorios.', variant: 'destructive' })
+   199→      return
+   200→    }
+   201→    setGuardando(true)
+   202→    try {
+   203→      if (editando) {
+   204→        await api(`/api/deportistas/${editando.id}`, { method: 'PUT', body: JSON.stringify(form) })
+   205→        toast({ title: 'Deportista actualizado' })
+   206→      } else {
+   207→        await api('/api/deportistas', { method: 'POST', body: JSON.stringify(form) })
+   208→        toast({ title: 'Deportista registrado' })
+   209→      }
+   210→      setDialogo(false)
+   211→      recargar()
+   212→    } catch (e) {
+   213→      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })
+   214→    } finally { setGuardando(false) }
+   215→  }
+   216→
+   217→  const eliminar = async (d: Deportista) => {
+   218→    if (!confirm(`¿Eliminar a ${nombreCompletoUI(d)}? Se borrarán también sus resultados.`)) return
+   219→    try {
+   220→      await api(`/api/deportistas/${d.id}`, { method: 'DELETE' })
+   221→      toast({ title: 'Deportista eliminado' })
+   222→      recargar()
+   223→    } catch (e) {
+   224→      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })
+   225→    }
+   226→  }
+   227→
+   228→  const alternarActivo = async (d: Deportista) => {
+   229→    const body = d.retirado ? { retirado: false, activo: true } : { activo: !d.activo }
+   230→    try {
+   231→      await api(`/api/deportistas/${d.id}`, { method: 'PUT', body: JSON.stringify(body) })
+   232→      toast({
+   233→        title: d.retirado ? `${nombreCompletoUI(d)} reactivado` : d.activo ? `${nombreCompletoUI(d)} → INACTIVO` : `${nombreCompletoUI(d)} → ACTIVO`,
+   234→        description: d.retirado
+   235→          ? 'Vuelve al grupo activo del CAR.'
+   236→          : d.activo
+   237→            ? 'Queda fuera del grupo activo (formatos, alimentación y análisis activos lo excluyen).'
+   238→            : 'Vuelve al grupo activo del CAR.',
+   239→      })
+   240→      recargar()
+   241→    } catch (e) {
+   242→      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })
+   243→    }
+   244→  }
+   245→
+   246→  const set = (k: keyof FormDep, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }))
+   247→
+   248→  const visiblesList = COLUMNAS.filter((c) => visibles.has(c.key))
+   249→  const colSpan = 3 + visiblesList.length
+   250→  const thOrden = (key: string, label: string, className = 'text-red-900') => (
+   251→    <TableHead className={`px-2 ${className}`}>
+   252→      <button type="button" className="inline-flex items-center gap-1 font-medium hover:underline" onClick={() => cambiarOrden(key)}>
+   253→        {label}
+   254→        {orden?.key === key
+   255→          ? (orden.dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)
+   256→          : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+   257→      </button>
+   258→    </TableHead>
+   259→  )
+   260→  const celda = (d: Deportista, key: ColKey) => {
+   261→    switch (key) {
+   262→      case 'dni': return <span className="text-sm">{d.dni}</span>
+   263→      case 'edad': {
+   264→        const e = calcularEdad(d.fechaNacimiento)
+   265→        return <span className="text-sm font-semibold text-slate-700">{e !== null ? e : '—'}</span>
+   266→      }
+   267→      case 'fechaNacimiento': return <span className="text-sm">{fmtFecha(d.fechaNacimiento) || '—'}</span>
+   268→      case 'categoria': return <BadgeCat>{d.categoria}</BadgeCat>
+   269→      case 'sexo': return <span className="text-sm">{d.sexo === 'FEMENINO' ? 'F' : 'M'}</span>
+   270→      case 'deporte': return <span className="text-sm">{d.deporte}<span className="block text-xs text-slate-500">{d.prueba ?? '—'}</span></span>
+   271→      case 'nivelTecnico': return <span className="text-sm">{d.nivelTecnico}</span>
+   272→      case 'modalidad': return <span className="text-sm">{d.modalidad}</span>
+   273→      case 'ingreso': return <span className="text-sm">{fmtFecha(d.fechaIngreso) || '—'}</span>
+   274→      case 'continuidad': return (
+   275→        <span className={`text-sm ${d.fechaVencimientoContinuidad ? 'text-slate-700' : 'text-slate-400'}`}>{fmtFecha(d.fechaVencimientoContinuidad) || '—'}</span>
+   276→      )
+   277→      case 'aval': return (
+   278→        <span>
+   279→          <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${estadoAval(d.fechaCaducidadAval).clase}`}>
+   280→            {estadoAval(d.fechaCaducidadAval).texto}
+   281→          </span>
+   282→          {d.fechaCaducidadAval && <span className="block text-xs text-slate-500">{fmtFecha(d.fechaCaducidadAval)}</span>}
+   283→        </span>
+   284→      )
+   285→      case 'pad': return <span className={`text-sm font-semibold ${d.pad ? 'text-green-700' : 'text-slate-400'}`}>{d.pad ? 'SI' : 'NO'}</span>
+   286→      case 'procedencia': return <span className="text-sm">{d.procedencia}</span>
+   287→      case 'telefono': return <span className="text-sm">{d.telefono ?? '—'}</span>
+   288→      case 'entrenador': return <span className="text-sm text-slate-600">{d.entrenador ?? '—'}</span>
+   289→      case 'estado': {
+   290→        const ei = estadoInfo(d)
+   291→        return <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-bold ${ei.clase}`}>{ei.texto}</span>
+   292→      }
+   293→      default: return null
+   294→    }
+   295→  }
+   296→  const edadForm = calcularEdad(form.fechaNacimiento)
+   297→
+   298→  return (
+   299→    <div className="space-y-4">
+   300→      <div className="flex flex-wrap items-center gap-2">
+   301→        <div className="relative min-w-52 flex-1">
+   302→          <UserSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+   303→          <Input placeholder="Buscar por apellido o DNI…" className="pl-8" value={q} onChange={(e) => setQ(e.target.value)} />
+   304→        </div>
+   305→        <Select value={fCategoria} onValueChange={setFCategoria}>
+   306→          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+   307→          <SelectContent>{['todas', ...CATEGORIAS].map((c) => <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>)}</SelectContent>
+   308→        </Select>
+   309→        <Select value={fSexo} onValueChange={setFSexo}>
+   310→          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+   311→          <SelectContent>{['todos', ...SEXOS].map((c) => <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>)}</SelectContent>
+   312→        </Select>
+   313→        <Select value={fModalidad} onValueChange={setFModalidad}>
+   314→          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+   315→          <SelectContent>{['todas', ...MODALIDADES].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+   316→        </Select>
+   317→        <Button variant={verFiltros ? 'default' : 'outline'} className={verFiltros ? 'bg-red-800 hover:bg-red-900' : 'border-red-800 text-red-900 hover:bg-red-50'} onClick={() => setVerFiltros((v) => !v)}>
+   318→          <Filter className="h-4 w-4" /> Filtros
+   319→          {numFiltros > 0 && <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-800 px-1 text-[11px] font-bold text-white">{numFiltros}</span>}
+   320→        </Button>
+   321→        <Popover>
+   322→          <PopoverTrigger asChild>
+   323→            <Button variant="outline" className="border-red-800 text-red-900 hover:bg-red-50">
+   324→              <Columns3 className="h-4 w-4" /> Columnas
+   325→              <span className="ml-1 text-xs text-slate-500">{visiblesList.length}/{COLUMNAS.length}</span>
+   326→            </Button>
+   327→          </PopoverTrigger>
+   328→          <PopoverContent className="w-64" align="end">
+   329→            <div className="mb-2 flex items-center justify-between">
+   330→              <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Variables a visualizar</p>
+   331→              <button type="button" className="text-xs font-medium text-red-800 hover:underline" onClick={restaurarColumnas}>Restaurar</button>
+   332→            </div>
+   333→            <div className="grid max-h-72 gap-1 overflow-y-auto pr-1">
+   334→              {COLUMNAS.map((c) => (
+   335→                <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-slate-700 hover:bg-slate-50">
+   336→                  <Checkbox checked={visibles.has(c.key)} onCheckedChange={(v) => toggleColumna(c.key, v === true)} className="accent-red-800" />
+   337→                  {c.etiqueta}
+   338→                </label>
+   339→              ))}
+   340→            </div>
+   341→          </PopoverContent>
+   342→        </Popover>
+   343→        <Button className="bg-red-800 hover:bg-red-900" onClick={abrirNuevo}><Plus className="h-4 w-4" /> Nuevo</Button>
+   344→      </div>
+   345→
+   346→      {verFiltros && (
+   347→        <div className="rounded-xl border bg-white p-3 shadow-sm">
+   348→          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+   349→            <label className="grid gap-1 text-xs font-medium text-slate-600">Deporte
+   350→              <Select value={fDeporte} onValueChange={setFDeporte}>
+   351→                <SelectTrigger><SelectValue /></SelectTrigger>
+   352→                <SelectContent>{['todos', ...DEPORTES].map((c) => <SelectItem key={c} value={c}>{c === 'todos' ? 'TODOS' : c}</SelectItem>)}</SelectContent>
+   353→              </Select>
+   354→            </label>
+   355→            <label className="grid gap-1 text-xs font-medium text-slate-600">Nivel técnico
+   356→              <Select value={fNivel} onValueChange={setFNivel}>
+   357→                <SelectTrigger><SelectValue /></SelectTrigger>
+   358→                <SelectContent>{['todos', ...NIVELES].map((c) => <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>)}</SelectContent>
+   359→              </Select>
+   360→            </label>
+   361→            <label className="grid gap-1 text-xs font-medium text-slate-600">Seguro PAD
+   362→              <Select value={fPad} onValueChange={setFPad}>
+   363→                <SelectTrigger><SelectValue /></SelectTrigger>
+   364→                <SelectContent>
+   365→                  <SelectItem value="todos">TODOS</SelectItem>
+   366→                  <SelectItem value="si">CON PAD</SelectItem>
+   367→                  <SelectItem value="no">SIN PAD</SelectItem>
+   368→                </SelectContent>
+   369→              </Select>
+   370→            </label>
+   371→            <label className="grid gap-1 text-xs font-medium text-slate-600">Aval médico
+   372→              <Select value={fAval} onValueChange={setFAval}>
+   373→                <SelectTrigger><SelectValue /></SelectTrigger>
+   374→                <SelectContent>
+   375→                  {['todos', 'VIGENTE', 'POR VENCER', 'EXPIRADO', 'SIN REGISTRO'].map((c) => <SelectItem key={c} value={c}>{c.toUpperCase()}</SelectItem>)}
+   376→                </SelectContent>
+   377→              </Select>
+   378→            </label>
+   379→            <label className="grid gap-1 text-xs font-medium text-slate-600">Estado
+   380→              <Select value={fEstado} onValueChange={setFEstado}>
+   381→                <SelectTrigger><SelectValue /></SelectTrigger>
+   382→                <SelectContent>
+   383→                  <SelectItem value="todos">TODOS</SelectItem>
+   384→                  <SelectItem value="activos">ACTIVOS</SelectItem>
+   385→                  <SelectItem value="inactivos">INACTIVOS</SelectItem>
+   386→                  <SelectItem value="retirados">RETIRADOS</SelectItem>
+   387→                </SelectContent>
+   388→              </Select>
+   389→            </label>
+   390→            <label className="grid gap-1 text-xs font-medium text-slate-600">Edad mínima
+   391→              <Input type="number" min={0} max={80} placeholder="Ej. 15" value={edadMin} onChange={(e) => setEdadMin(e.target.value)} />
+   392→            </label>
+   393→            <label className="grid gap-1 text-xs font-medium text-slate-600">Edad máxima
+   394→              <Input type="number" min={0} max={80} placeholder="Ej. 23" value={edadMax} onChange={(e) => setEdadMax(e.target.value)} />
+   395→            </label>
+   396→            <div className="flex items-end justify-end">
+   397→              <Button size="sm" variant="ghost" className="text-slate-500" onClick={limpiarFiltros}><X className="h-4 w-4" /> Limpiar filtros</Button>
+   398→            </div>
+   399→          </div>
+   400→        </div>
+   401→      )}
+   402→
+   403→      <div className="flex items-center justify-between text-xs text-slate-500">
+   404→        <span>Mostrando <b className="text-slate-700">{filtrados.length}</b> de {lista.length} deportistas</span>
+   405→        {orden && <span>Ordenado por <b className="text-slate-700">{etiquetaDe(orden.key)}</b> ({orden.dir === 'asc' ? 'ascendente' : 'descendente'})</span>}
+   406→      </div>
+   407→
+   408→      {/* ===== TABLA COMPACTA — tablet y desktop ===== */}
+   409→      <div className="hidden overflow-x-auto rounded-xl border bg-white shadow-sm md:block">
+   410→        <Table>
+   411→          <TableHeader>
+   412→            <TableRow className="bg-red-50">
+   413→              <TableHead className="w-8 px-2 text-red-900">N°</TableHead>
+   414→              {thOrden('nombres', 'Apellidos y nombres')}
+   415→              {visiblesList.map((c) => thOrden(c.key, c.etiqueta))}
+   416→              <TableHead className="px-2 text-right text-red-900">Acciones</TableHead>
+   417→            </TableRow>
+   418→          </TableHeader>
+   419→          <TableBody>
+   420→            {cargando && <TableRow><TableCell colSpan={colSpan} className="py-8 text-center text-slate-500">Cargando…</TableCell></TableRow>}
+   421→            {!cargando && filtrados.length === 0 && <TableRow><TableCell colSpan={colSpan} className="py-8 text-center text-slate-500">Sin resultados</TableCell></TableRow>}
+   422→            {filtrados.map((d, i) => (
+   423→              <TableRow key={d.id} className={d.retirado ? 'opacity-50' : !d.activo ? 'opacity-70' : ''}>
+   424→                <TableCell className="px-2 text-xs text-slate-500">{i + 1}</TableCell>
+   425→                <TableCell className="px-2 text-sm font-medium">{nombreCompletoUI(d)}</TableCell>
+   426→                {visiblesList.map((c) => <TableCell key={c.key} className="px-2">{celda(d, c.key)}</TableCell>)}
+   427→                <TableCell className="whitespace-nowrap px-2 text-right">
+   428→                  <Button size="icon" variant="ghost" title={d.retirado ? 'Reactivar (volver a ACTIVO)' : d.activo ? 'Pasar a INACTIVO' : 'Pasar a ACTIVO'}
+   429→                    className={`h-7 w-7 ${d.retirado ? 'text-slate-400' : d.activo ? 'text-green-700' : 'text-amber-600'}`} onClick={() => alternarActivo(d)}><Power className="h-4 w-4" /></Button>
+   430→                  <Button size="icon" variant="ghost" title="Ficha 360°" className="h-7 w-7 text-red-900" onClick={() => setDepIdFicha(d.id)}><FileText className="h-4 w-4" /></Button>
+   431→                  <Button size="icon" variant="ghost" title="Editar" className="h-7 w-7" onClick={() => abrirEdicion(d)}><Pencil className="h-4 w-4" /></Button>
+   432→                  <Button size="icon" variant="ghost" title="Eliminar" className="h-7 w-7 text-red-600" onClick={() => eliminar(d)}><Trash2 className="h-4 w-4" /></Button>
+   433→                </TableCell>
+   434→              </TableRow>
+   435→            ))}
+   436→          </TableBody>
+   437→        </Table>
+   438→      </div>
+   439→
+   440→      {/* ===== TARJETAS — celular (sin barras de desplazamiento) ===== */}
+   441→      <div className="space-y-2.5 md:hidden">
+   442→        {cargando && <p className="py-8 text-center text-sm text-slate-500">Cargando…</p>}
+   443→        {!cargando && filtrados.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Sin resultados</p>}
+   444→        {filtrados.map((d, i) => (
+   445→          <div key={d.id} className={`rounded-xl border bg-white p-3 shadow-sm ${d.retirado ? 'opacity-50' : !d.activo ? 'opacity-70' : ''}`}>
+   446→            <div className="flex items-start justify-between gap-2">
+   447→              <div className="min-w-0">
+   448→                <p className="truncate text-sm font-bold text-slate-800">{i + 1}. {nombreCompletoUI(d)}</p>
+   449→                <p className="text-xs text-slate-500">DNI {d.dni}</p>
+   450→              </div>
+   451→              <BadgeCat>{d.categoria}</BadgeCat>
+   452→            </div>
+   453→            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+   454→              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700">{calcularEdad(d.fechaNacimiento) ?? '—'} años</span>
+   455→              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.sexo === 'FEMENINO' ? 'F' : 'M'}</span>
+   456→              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.deporte}{d.prueba ? ` · ${d.prueba}` : ''}</span>
+   457→              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{d.modalidad}</span>
+   458→              {d.pad && <span className="rounded bg-green-100 px-1.5 py-0.5 font-bold text-green-800">PAD</span>}
+   459→              <span className={`rounded px-1.5 py-0.5 font-bold ${estadoAval(d.fechaCaducidadAval).clase}`}>{estadoAval(d.fechaCaducidadAval).texto}</span>
+   460→              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Ingreso: {fmtFecha(d.fechaIngreso) || '—'}</span>
+   461→              {d.fechaVencimientoContinuidad && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">Continuidad: {fmtFecha(d.fechaVencimientoContinuidad)}</span>}
+   462→              <span className={`rounded px-1.5 py-0.5 font-bold ${estadoInfo(d).clase}`}>{estadoInfo(d).texto}</span>
+   463→            </div>
+   464→            <div className="mt-2.5 flex gap-1.5 border-t pt-2">
+   465→              <Button size="sm" variant="outline" className="h-7 flex-1 text-xs text-red-900" onClick={() => setDepIdFicha(d.id)}><ClipboardList className="h-3.5 w-3.5" /> Ficha 360°</Button>
+   466→              <Button size="sm" variant="outline" title={d.retirado ? 'Reactivar (volver a ACTIVO)' : d.activo ? 'Pasar a INACTIVO' : 'Pasar a ACTIVO'}
+   467→                className={`h-7 w-9 p-0 ${d.retirado ? 'text-slate-400' : d.activo ? 'text-green-700' : 'text-amber-600'}`} onClick={() => alternarActivo(d)}><Power className="h-3.5 w-3.5" /></Button>
+   468→              <Button size="sm" variant="outline" title="Editar" className="h-7 w-9 p-0" onClick={() => abrirEdicion(d)}><Pencil className="h-3.5 w-3.5" /></Button>
+   469→              <Button size="sm" variant="outline" title="Eliminar" className="h-7 w-9 p-0 text-red-600" onClick={() => eliminar(d)}><Trash2 className="h-3.5 w-3.5" /></Button>
+   470→            </div>
+   471→          </div>
+   472→        ))}
+   473→      </div>
+   474→
+   475→      <Dialog open={dialogo} onOpenChange={setDialogo}>
+   476→        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+   477→          <DialogHeader>
+   478→            <DialogTitle>{editando ? `Editar: ${nombreCompletoUI(editando)}` : 'Nuevo deportista'}</DialogTitle>
+   479→          </DialogHeader>
+   480→          <div className="grid gap-3 sm:grid-cols-3">
+   481→            {([['apellidoPaterno', 'Apellido paterno', 'text'], ['apellidoMaterno', 'Apellido materno', 'text'], ['nombres', 'Nombres', 'text'], ['dni', 'DNI', 'text'], ['fechaNacimiento', 'Fecha de nacimiento', 'date'], ['fechaIngreso', 'Fecha de ingreso', 'date'], ['fechaVencimientoContinuidad', 'Vencimiento de continuidad', 'date'], ['fechaCaducidadAval', 'Caducidad del aval médico', 'date'], ['prueba', 'Prueba (ej. 800 m)', 'text'], ['telefono', 'Teléfono', 'text'], ['entrenador', 'Entrenador', 'text']] as const).map(([k, lbl, tp]) => (
+   482→              <label key={k} className="grid gap-1 text-xs font-medium text-slate-600">
+   483→                {lbl}{k === 'fechaNacimiento' && edadForm !== null ? ` (Edad: ${edadForm} años)` : ''}
+   484→                <Input type={tp} value={String(form[k] ?? '')} onChange={(e) => set(k, e.target.value)} />
+   485→              </label>
+   486→            ))}
+   487→            <label className="grid gap-1 text-xs font-medium text-slate-600">Sexo
+   488→              <Select value={form.sexo} onValueChange={(v) => set('sexo', v)}><SelectTrigger><SelectValue /></SelectTrigger>
+   489→                <SelectContent>{SEXOS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+   490→            </label>
+   491→            <label className="grid gap-1 text-xs font-medium text-slate-600">Deporte
+   492→              <Select value={form.deporte} onValueChange={(v) => set('deporte', v)}><SelectTrigger><SelectValue /></SelectTrigger>
+   493→                <SelectContent>{DEPORTES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+   494→            </label>
+   495→            <label className="grid gap-1 text-xs font-medium text-slate-600">Categoría
+   496→              <Select value={form.categoria} onValueChange={(v) => set('categoria', v)}><SelectTrigger><SelectValue /></SelectTrigger>
+   497→                <SelectContent>{CATEGORIAS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+   498→            </label>
+   499→            <label className="grid gap-1 text-xs font-medium text-slate-600">Nivel técnico
+   500→              <Select value={form.nivelTecnico} onValueChange={(v) => set('nivelTecnico', v)}><SelectTrigger><SelectValue /></SelectTrigger>
+   501→                <SelectContent>{NIVELES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+   502→            </label>
+   503→            <label className="grid gap-1 text-xs font-medium text-slate-600">Modalidad
+   504→              <Select value={form.modalidad} onValueChange={(v) => set('modalidad', v)}><SelectTrigger><SelectValue /></SelectTrigger>
+   505→                <SelectContent>{MODALIDADES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+   506→            </label>
+   507→            <label className="grid gap-1 text-xs font-medium text-slate-600">Estado
+   508→              <Select value={form.retirado ? 'RETIRADO' : form.activo ? 'ACTIVO' : 'INACTIVO'}
+   509→                onValueChange={(v) => setForm((f) => ({ ...f, retirado: v === 'RETIRADO', activo: v === 'ACTIVO' }))}>
+   510→                <SelectTrigger><SelectValue /></SelectTrigger>
+   511→                <SelectContent>
+   512→                  <SelectItem value="ACTIVO">ACTIVO — entrena actualmente</SelectItem>
+   513→                  <SelectItem value="INACTIVO">INACTIVO — temporalmente fuera</SelectItem>
+   514→                  <SelectItem value="RETIRADO">RETIRADO — dejó el CAR</SelectItem>
+   515→                </SelectContent>
+   516→              </Select>
+   517→            </label>
+   518→            <label className="grid gap-1 text-xs font-medium text-slate-600 sm:col-span-2">
+   519→              Distrito / provincia de procedencia
+   520→              <Input value={form.procedencia} onChange={(e) => set('procedencia', e.target.value)} />
+   521→            </label>
+   522→            <label className="flex items-end gap-2 pb-1 text-xs font-medium text-slate-600">
+   523→              <input type="checkbox" checked={form.pad} onChange={(e) => set('pad', e.target.checked)} className="h-4 w-4 accent-red-800" />
+   524→              Seguro PAD (SI)
+   525→            </label>
+   526→          </div>
+   527→          <DialogFooter>
+   528→            <Button variant="outline" onClick={() => setDialogo(false)}>Cancelar</Button>
+   529→            <Button className="bg-red-800 hover:bg-red-900" disabled={guardando} onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar'}</Button>
+   530→          </DialogFooter>
+   531→        </DialogContent>
+   532→      </Dialog>
+   533→
+   534→      <Ficha360 depId={depIdFicha} onClose={() => setDepIdFicha(null)} />
+   535→    </div>
+   536→  )
+   537→}
+   538→

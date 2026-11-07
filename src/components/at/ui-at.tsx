@@ -8,8 +8,10 @@ import { MESES_ES } from '@/lib/periodos'
 
 export async function api<T>(url: string, opciones?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...opciones, headers: { 'Content-Type': 'application/json', ...(opciones?.headers ?? {}) } })
-  const datos = await res.json()
-  if (!res.ok) throw new Error(datos?.error ?? 'Error de comunicación')
+  // Acepta respuestas no-JSON (ej. error 500 HTML) sin romper con SyntaxError
+  let datos: { error?: string } | null = null
+  try { datos = await res.json() } catch { /* cuerpo no JSON */ }
+  if (!res.ok) throw new Error(datos?.error ?? `Error ${res.status} de comunicación con el servidor`)
   return datos as T
 }
 
@@ -102,13 +104,16 @@ export function AreaIA({ etiqueta, valor, onChange, onGenerar, cargando, filas =
 
 export function SelectorMes({ valor, onChange, incluirAnio }: { valor: string; onChange: (v: string) => void; incluirAnio?: boolean }) {
   if (incluirAnio) {
+    const hoy = new Date().getUTCFullYear()
+    const anios: number[] = []
+    for (let y = hoy + 1; y >= hoy - 5; y--) anios.push(y) // año siguiente hacia 5 años atrás (dinámico)
     return (
       <select
         className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm"
         value={valor.slice(0, 4)}
         onChange={(e) => onChange(`${e.target.value}-01`)}
       >
-        {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{`AÑO ${y}`}</option>)}
+        {anios.map((y) => <option key={y} value={y}>{`AÑO ${y}`}</option>)}
       </select>
     )
   }
@@ -170,3 +175,29 @@ export const BadgeCat = ({ children }: { children: React.ReactNode }) => (
 )
 
 export const PALETA = ['#b91c1c', '#ea580c', '#ca8a04', '#166534', '#57534e', '#7c2d12']
+export const PALETA_SEXO: Record<string, string> = { MASCULINO: '#1e40af', FEMENINO: '#be185d' }
+
+// ===== Utilidades de gráficos compartidas (recharts) =====
+
+// Leyenda propia (chips con punto de color): reemplaza la leyenda de recharts para que no se superponga en pantallas pequeñas
+export const Chips = ({ items }: { items: { clave: string; total: number; color: string }[] }) => (
+  <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+    {items.map((x) => (
+      <span key={x.clave} className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: x.color }} /><span className="truncate">{x.clave}: {x.total}</span>
+      </span>
+    ))}
+  </div>
+)
+
+// Detecta pantallas pequeñas (para reordenar/redibujar los gráficos)
+export function useEsMovil(): boolean {
+  const [movil, setMovil] = useState(false)
+  useEffect(() => {
+    const f = () => setMovil(window.innerWidth < 640)
+    f()
+    window.addEventListener('resize', f)
+    return () => window.removeEventListener('resize', f)
+  }, [])
+  return movil
+}

@@ -11,7 +11,7 @@ const plantilla = (nombre: string) => path.join(process.cwd(), 'templates', nomb
 
 async function abrir(archivo: string): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(fs.readFileSync(archivo))
+  await wb.xlsx.load(fs.readFileSync(archivo) as unknown as ExcelJS.Buffer)
   return wb
 }
 
@@ -99,16 +99,16 @@ export async function exportSeguro(deps: { [k: string]: unknown }[], refMes: str
   const [y, m] = refMes.split('-')
   const mes = MESES_ES[parseInt(m) - 1]
   p(ws, 'A1', `LISTA DE DEPORTISTAS DEL CAR CUSCO - SEGURO- ${mes} -${y}`)
-  const filas: Celda[][] = deps.map((d, i) => {
+  const filas: Celda[][] = deps.map((d, i): Celda[] => {
     const pad = d.pad ? 'SI' : 'NO'
     const tel = d.telefono ? String(d.telefono) : null
     const telV = tel && /^\d+$/.test(tel) ? Number(tel) : tel
     return [
-      i + 1, d.apellidoPaterno, d.apellidoMaterno, d.nombres,
+      i + 1, String(d.apellidoPaterno), String(d.apellidoMaterno), String(d.nombres),
       /^\d+$/.test(String(d.dni)) ? Number(d.dni) : String(d.dni),
-      d.sexo, d.fechaIngreso ? new Date(String(d.fechaIngreso)) : null, d.deporte,
-      new Date(String(d.fechaNacimiento)), d.nivelTecnico, d.modalidad, telV,
-      d.procedencia, d.categoria, pad,
+      String(d.sexo), d.fechaIngreso ? new Date(String(d.fechaIngreso)) : null, String(d.deporte),
+      new Date(String(d.fechaNacimiento)), String(d.nivelTecnico), String(d.modalidad), telV,
+      String(d.procedencia), String(d.categoria), pad,
     ]
   })
   escribirFilas(ws, 3, 20, 1, 15, filas)
@@ -132,12 +132,12 @@ export async function exportAlimentacion(
   p(ws, 'H4', q.etiquetaCorta)
   // Nota: la columna G (CUMPLEAÑOS) viene combinada G5:G22 en la plantilla oficial y se mantiene
   // tal cual (vacía); los cumpleaños de la quincena se indican en OBSERVACIONES.
-  const filas: Celda[][] = deps.map((d, i) => {
+  const filas: Celda[][] = deps.map((d, i): Celda[] => {
     const reg = registros.get(Number(d.id))
     const nac = new Date(String(d.fechaNacimiento))
     const cumple = cumpleEnQuincena(nac, q) ? `CUMPLEAÑOS ${fmtFecha(nac)}` : null
     return [
-      i + 1, 'CUSCO', d.apellidoPaterno, d.apellidoMaterno, d.nombres,
+      i + 1, 'CUSCO', String(d.apellidoPaterno), String(d.apellidoMaterno), String(d.nombres),
       null, reg && !reg.incluido ? 'No' : 'Sí', cumple ?? reg?.observaciones ?? null,
     ]
   })

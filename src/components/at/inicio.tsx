@@ -3,8 +3,8 @@
 // INICIO — panel general: KPIs, composición de la población, alertas y actividad del mes
 import { useEffect, useMemo, useState } from 'react'
 import { Users, ShieldCheck, CalendarDays, Trophy, Activity, HeartPulse, AlertTriangle, Cake, Utensils, BarChart3, Bot, FileSignature, ChevronRight } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts'
-import { Kpi, TituloSeccion, api, PALETA, useDeportistas, BadgeCat, estadoAval, calcularEdad, nombreCompletoUI } from './ui-at'
+import { Kpi, TituloSeccion, api, PALETA, PALETA_SEXO, useDeportistas, useEsMovil, BadgeCat, estadoAval, calcularEdad, nombreCompletoUI } from './ui-at'
+import { GraficoBarras, GraficoDonut } from './charts'
 import { MESES_ES, fmtFecha } from '@/lib/periodos'
 
 type Estad = {
@@ -21,34 +21,15 @@ const GRUPOS_EDAD = ['≤ 15', '16-17', '18-19', '20-22', '23-25', '26+'] as con
 const enGrupo = (e: number | null) => (e == null ? -1 : e <= 15 ? 0 : e <= 17 ? 1 : e <= 19 ? 2 : e <= 22 ? 3 : e <= 25 ? 4 : 5)
 const DIAS_ALERTA = 60
 
-// Leyenda propia (chips con punto de color): reemplaza la leyenda de recharts para que no se superponga en pantallas pequeñas
-const Chips = ({ items }: { items: { clave: string; total: number; color: string }[] }) => (
-  <div className="flex flex-wrap justify-center gap-1.5 pt-1">
-    {items.map((x) => (
-      <span key={x.clave} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: x.color }} />{x.clave}: {x.total}
-      </span>
-    ))}
-  </div>
-)
-
 export default function Inicio({ onAbrirFicha, onIrA }: { onAbrirFicha: (id: number) => void; onIrA: (tab: string) => void }) {
   const { lista } = useDeportistas()
   const [est, setEst] = useState<Estad | null>(null)
-  const [movil, setMovil] = useState(false)
+  const movil = useEsMovil()
   const mesHoy = new Date().toISOString().slice(0, 7)
 
   useEffect(() => {
     api<Estad>(`/api/estadisticas?tipo=MENSUAL&ref=${mesHoy}`).then(setEst).catch(() => null)
   }, [mesHoy])
-
-  // Detecta pantallas pequeñas para redibujar los gráficos (los pasteles se muestran separados)
-  useEffect(() => {
-    const f = () => setMovil(window.innerWidth < 640)
-    f()
-    window.addEventListener('resize', f)
-    return () => window.removeEventListener('resize', f)
-  }, [])
 
   const activos = useMemo(() => lista.filter((d) => d.activo && !d.retirado), [lista])
 
@@ -109,86 +90,26 @@ export default function Inicio({ onAbrirFicha, onIrA }: { onAbrirFicha: (id: num
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <TituloSeccion>Composición por categoría</TituloSeccion>
-          <div className="h-44 sm:h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={est?.porCategoria ?? []} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-                <XAxis dataKey="clave" tick={{ fontSize: 11 }} interval={0} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                  {(est?.porCategoria ?? []).map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <GraficoBarras data={est?.porCategoria ?? []} colores={PALETA} alto="h-44 sm:h-52" mensajeVacio="Calculando estadísticas…" />
         </div>
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <TituloSeccion>Distribución de edades</TituloSeccion>
-          <div className="h-44 sm:h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={porEdad} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-                <XAxis dataKey="clave" tick={{ fontSize: 11 }} interval={0} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => [`${v} deportistas`, 'Total']} />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]}>{porEdad.map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}</Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <GraficoBarras data={porEdad} colores={PALETA} alto="h-44 sm:h-52" />
         </div>
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <TituloSeccion>Sexo y estado del aval médico</TituloSeccion>
-          {movil ? (
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="h-32">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={est?.porSexo ?? []} dataKey="total" nameKey="clave" cx="50%" cy="50%" innerRadius={20} outerRadius={44}>
-                        {(est?.porSexo ?? []).map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <p className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Sexo</p>
-                <Chips items={(est?.porSexo ?? []).map((x, i) => ({ clave: x.clave, total: x.total, color: PALETA[i % PALETA.length] }))} />
-              </div>
-              <div>
-                <div className="h-32">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={porAval} dataKey="total" nameKey="clave" cx="50%" cy="50%" innerRadius={20} outerRadius={44}>
-                        {porAval.map((x) => <Cell key={x.clave} fill={COLOR_AVAL[x.clave] ?? '#94a3b8'} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <p className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Aval médico</p>
-                <Chips items={porAval.map((x) => ({ clave: x.clave, total: x.total, color: COLOR_AVAL[x.clave] ?? '#94a3b8' }))} />
-              </div>
-            </div>
-          ) : (
+          {/* dos donas independientes (una por dimensión): composición correcta y legible en cualquier pantalla */}
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <div className="h-44 sm:h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={est?.porSexo ?? []} dataKey="total" nameKey="clave" cx="27%" cy="50%" innerRadius={30} outerRadius={60}>
-                      {(est?.porSexo ?? []).map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}
-                    </Pie>
-                    <Pie data={porAval} dataKey="total" nameKey="clave" cx="73%" cy="50%" innerRadius={30} outerRadius={60}>
-                      {porAval.map((x) => <Cell key={x.clave} fill={COLOR_AVAL[x.clave] ?? '#94a3b8'} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <Chips items={[
-                ...(est?.porSexo ?? []).map((x, i) => ({ clave: x.clave, total: x.total, color: PALETA[i % PALETA.length] })),
-                ...porAval.map((x) => ({ clave: x.clave, total: x.total, color: COLOR_AVAL[x.clave] ?? '#94a3b8' })),
-              ]} />
+              <GraficoDonut data={(est?.porSexo ?? []).map((x, i) => ({ clave: x.clave, total: x.total, color: PALETA_SEXO[x.clave] ?? PALETA[i % PALETA.length] }))} alto="h-32 sm:h-40" etiquetaCentro="deportistas" />
+              <p className="pt-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Sexo</p>
             </div>
-          )}
+            <div>
+              <GraficoDonut data={porAval.map((x) => ({ clave: x.clave, total: x.total, color: COLOR_AVAL[x.clave] ?? '#94a3b8' }))} alto="h-32 sm:h-40" etiquetaCentro="avales" />
+              <p className="pt-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Aval médico</p>
+            </div>
+          </div>
+          {movil && <p className="pt-1 text-center text-[10px] text-slate-400">Toca una porción para ver el detalle</p>}
         </div>
       </div>
 
@@ -203,9 +124,9 @@ export default function Inicio({ onAbrirFicha, onIrA }: { onAbrirFicha: (id: num
               const max = Math.max(1, ...(est?.porModalidad ?? []).map((y) => y.total), ...(est?.porDeporte ?? []).map((y) => y.total))
               return (
                 <div key={`${x.tipo}-${x.etq}`} className="flex items-center gap-2">
-                  <span className="w-32 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{x.etq}</span>
+                  <span className="w-24 shrink-0 truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:w-32">{x.etq}</span>
                   <div className="h-4 flex-1 overflow-hidden rounded bg-slate-100">
-                    <div className="h-full rounded bg-red-800" style={{ width: `${(x.total / max) * 100}%` }} />
+                    <div className="h-full rounded bg-red-800 transition-all" style={{ width: `${(x.total / max) * 100}%` }} />
                   </div>
                   <span className="w-6 text-right text-xs font-bold text-slate-700">{x.total}</span>
                 </div>

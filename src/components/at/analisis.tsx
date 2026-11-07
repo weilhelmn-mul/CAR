@@ -2,10 +2,10 @@
 
 // ANÁLISIS DEPORTIVO — panel de población por periodo + análisis de rendimiento técnico
 import { useEffect, useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, LineChart, Line } from 'recharts'
 import { Loader2, Table2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Kpi, TituloSeccion, api, SelectorMes, BotonesExportar, BotonIA, PALETA } from './ui-at'
+import { Kpi, TituloSeccion, api, SelectorMes, BotonesExportar, BotonIA, PALETA, PALETA_SEXO } from './ui-at'
+import { GraficoBarras, GraficoDonut } from './charts'
 import type { TipoPeriodo } from '@/lib/periodos'
 import Rendimiento from './rendimiento'
 
@@ -46,6 +46,8 @@ export default function Analisis() {
   }
 
   const params = { tipo: 'analisis', tipoPeriodo: tipo, periodo: ref }
+  // etiquetas cortas de mes para el eje X cuando hay varios meses ("NOVIEMBRE 2026" → "NOV")
+  const cortoMes = (v: string) => v.split(' ')[0].slice(0, 3)
 
   return (
     <Tabs defaultValue="poblacion">
@@ -90,46 +92,33 @@ export default function Analisis() {
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <TituloSeccion>Deportistas por categoría</TituloSeccion>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={est.porCategoria}>
-                    <XAxis dataKey="clave" tick={{ fontSize: 12 }} /><YAxis allowDecimals={false} /><Tooltip />
-                    <Bar dataKey="total" radius={[6, 6, 0, 0]}>{est.porCategoria.map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}</Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <GraficoBarras data={est.porCategoria} colores={PALETA} alto="h-52 sm:h-56" />
             </div>
+            {/* Dos donas independientes (sexo y deporte): cada dimensión conserva su propia escala 100 % */}
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <TituloSeccion>Distribución por sexo y deporte</TituloSeccion>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={[...est.porSexo, ...est.porDeporte.map((d) => ({ clave: d.clave, total: d.total }))]} dataKey="total" nameKey="clave" cx="50%" cy="50%" innerRadius={40} outerRadius={80} label={(x: { clave: string }) => x.clave}>
-                      {est.porSexo.map((_, i) => <Cell key={i} fill={PALETA[i % PALETA.length]} />)}
-                    </Pie>
-                    <Legend /><Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <GraficoDonut data={est.porSexo.map((x) => ({ clave: x.clave, total: x.total, color: PALETA_SEXO[x.clave] ?? PALETA[0] }))} alto="h-36 sm:h-44" etiquetaCentro="deportistas" />
+                  <p className="pt-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Sexo</p>
+                </div>
+                <div>
+                  <GraficoDonut data={est.porDeporte.map((x, i) => ({ clave: x.clave, total: x.total, color: PALETA[i % PALETA.length] }))} alto="h-36 sm:h-44" etiquetaCentro="deportistas" />
+                  <p className="pt-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Deporte</p>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="rounded-xl border bg-white p-4 shadow-sm">
             <TituloSeccion>Resultados registrados por mes</TituloSeccion>
-            <div className="h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={est.resultadosPorMes.length ? est.resultadosPorMes : [{ mes: 'Sin datos', total: 0 }]}>
-                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} /><YAxis allowDecimals={false} /><Tooltip />
-                  <Line type="monotone" dataKey="total" stroke="#b91c1c" strokeWidth={3} dot={{ r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            <GraficoBarras data={est.resultadosPorMes.map((r) => ({ clave: r.mes, total: r.total }))} color="#b91c1c" alto="h-48 sm:h-52" formatoX={cortoMes} ocultarCeros />
           </div>
 
           <div className="rounded-xl border bg-white p-4 shadow-sm">
             <TituloSeccion>Cuadro estadístico: mejores marcas del periodo</TituloSeccion>
             <div className="max-h-96 overflow-auto">
-              <table className="w-full text-xs">
+              <table className="w-full min-w-[760px] text-xs">
                 <thead><tr className="bg-red-50">
                   {['N°', 'APELLIDOS Y NOMBRES', 'CATEG.', 'SEXO', 'PRUEBA', 'MEJOR MARCA', 'FECHA', 'COMPETENCIA', 'MEJORA'].map((h) => <th key={h} className="sticky top-0 border bg-red-50 p-1.5 text-left text-red-900">{h}</th>)}
                 </tr></thead>

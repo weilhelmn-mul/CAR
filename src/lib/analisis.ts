@@ -68,14 +68,23 @@ export async function calcularEstadisticas(tipo: TipoPeriodo, ref: string, depor
   })
   mejores.sort((a, b) => a.nombre.localeCompare(b.nombre) || a.prueba.localeCompare(b.prueba))
 
-  // resultados por mes (para gráfico)
+  // resultados por mes (para gráfico) — serie COMPLETA del periodo, con 0 en los meses sin registros
   const porMes = new Map<string, number>()
   resultados.forEach((res) => {
     const y = res.fecha.getUTCFullYear(), m = res.fecha.getUTCMonth() + 1
     const k = `${MESES_ES[m - 1]} ${y}`
     porMes.set(k, (porMes.get(k) ?? 0) + 1)
   })
-  const resultadosPorMes = [...porMes.entries()].map(([mes, total]) => ({ mes, total }))
+  const mesesSerie: { y: number; m: number }[] = []
+  if (tipo === 'ANUAL') {
+    const y = parseInt(ref.slice(0, 4))
+    for (let m = 1; m <= 12; m++) mesesSerie.push({ y, m })
+  } else {
+    // recorre los meses del rango desde `desde` hasta `hasta`
+    const d = new Date(Date.UTC(r.desde.getUTCFullYear(), r.desde.getUTCMonth(), 1))
+    while (d < r.hasta) { mesesSerie.push({ y: d.getUTCFullYear(), m: d.getUTCMonth() + 1 }); d.setUTCMonth(d.getUTCMonth() + 1) }
+  }
+  const resultadosPorMes = mesesSerie.map(({ y, m }) => ({ mes: `${MESES_ES[m - 1]} ${y}`, total: porMes.get(`${MESES_ES[m - 1]} ${y}`) ?? 0 }))
 
   const ingresos = todos.filter((d) => d.fechaIngreso && d.fechaIngreso >= r.desde && d.fechaIngreso < r.hasta).length
 
