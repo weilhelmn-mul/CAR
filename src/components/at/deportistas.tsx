@@ -248,7 +248,7 @@ export default function Deportistas({ depIdFicha, setDepIdFicha }: { depIdFicha:
   const visiblesList = COLUMNAS.filter((c) => visibles.has(c.key))
   const colSpan = 3 + visiblesList.length
   const thOrden = (key: string, label: string, className = 'text-red-900') => (
-    <TableHead className={`px-2 ${className}`}>
+    <TableHead key={key} className={`px-2 ${className}`}>
       <button type="button" className="inline-flex items-center gap-1 font-medium hover:underline" onClick={() => cambiarOrden(key)}>
         {label}
         {orden?.key === key
