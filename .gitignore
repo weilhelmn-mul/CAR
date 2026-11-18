@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -55,7 +56,9 @@ server.log
 # ===== Exclusiones para GitHub (CAR) =====
 # Secretos y datos locales — NUNCA subir
 .env
-db/
+# Base de datos: se versiona custom.db; se excluyen solo archivos temporales
+db/*
+!db/custom.db
 dev.log
 # Archivos del usuario y exportaciones con datos personales
 download/
