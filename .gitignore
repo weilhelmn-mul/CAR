@@ -52,3 +52,18 @@ prompt
 server.log
 # Skills directory
 /skills/
+# ===== Exclusiones para GitHub (CAR) =====
+# Secretos y datos locales — NUNCA subir
+.env
+db/
+dev.log
+# Archivos del usuario y exportaciones con datos personales
+download/
+upload/
+# Artefactos de build del sistema de escritorio (Python v3.0)
+build_v21/
+# Infraestructura interna del entorno de desarrollo
+.zscripts/
+tool-results/
+tests/
+examples/

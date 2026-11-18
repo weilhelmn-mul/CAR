@@ -1,2 +1,0 @@
-# Dependencias solo de compilación / empaquetado (Windows)
-pyinstaller>=6.11
