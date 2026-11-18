@@ -67,3 +67,7 @@ build_v21/
 tool-results/
 tests/
 examples/
+
+# Binarios y utilidades de build del escritorio / herramientas internas
+scripts/
+mini-services/
