@@ -27,7 +27,7 @@ export async function crearToken(): Promise<string> {
   return `${carga}.${await hmac(carga)}`
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const valido = await validar(req.cookies.get(COOKIE)?.value ?? '')
   if (valido) return NextResponse.next()
   const { pathname } = req.nextUrl
@@ -36,6 +36,8 @@ export async function middleware(req: NextRequest) {
   }
   return NextResponse.redirect(new URL('/login', req.url))
 }
+
+export default proxy
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|login|api/auth).*)'],
