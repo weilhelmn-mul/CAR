@@ -24,7 +24,14 @@ export default function Principal() {
             <h1 className="truncate text-base font-bold leading-tight sm:text-lg">SISTEMA DE GESTIÓN DE FORMATOS AT</h1>
             <p className="text-[11px] uppercase tracking-wider text-red-200 sm:text-xs">Instituto Peruano del Deporte · DINADAF · CAR Cusco</p>
           </div>
-          <span className="ml-auto rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">v3.0 · con Asistente IA</span>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">v3.0 · con Asistente IA</span>
+            <button
+              onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }}
+              className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold transition-colors hover:bg-white/20"
+              title="Cerrar sesión"
+            >Salir</button>
+          </div>
         </div>
       </header>
 

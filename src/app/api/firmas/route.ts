@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
   if (imagen && !imagen.startsWith('data:image/')) {
     return NextResponse.json({ error: 'La imagen de la firma no es válida' }, { status: 400 })
   }
-  if (imagen.length > 2_000_000) {
-    return NextResponse.json({ error: 'La imagen es demasiado grande (máximo ~1.5 MB). Usa un PNG o JPG más liviano.' }, { status: 400 })
+  if (imagen.length > 900_000) {
+    return NextResponse.json({ error: 'La imagen es demasiado grande (máximo ~650 KB). Usa un PNG o JPG más liviano.' }, { status: 400 })
   }
   try {
     const guardada = await db.firma.upsert({
