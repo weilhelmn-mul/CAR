@@ -160,14 +160,38 @@ function ordenar(lista: Fila[], orderBy?: unknown): void {
 
 let appFirebase: App | null = null
 
+// Credenciales aceptadas (en orden de prioridad):
+//   1. FIREBASE_SERVICE_ACCOUNT → el JSON completo de la cuenta de servicio
+//      tal cual se descarga de Firebase (o el mismo JSON en base64).
+//   2. FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY → credencial por partes.
+//   3. Sin variables → credenciales predeterminadas de la aplicación (Cloud Run).
+function credencialFirestore(): { projectId: string; credential?: unknown } {
+  const projectId = process.env.FIREBASE_PROJECT_ID || 'car-cusco'
+  const saJson = (process.env.FIREBASE_SERVICE_ACCOUNT ?? '').trim()
+  if (saJson) {
+    const crudo = saJson.startsWith('{') ? saJson : Buffer.from(saJson, 'base64').toString('utf8')
+    let parseado: Record<string, unknown>
+    try {
+      parseado = JSON.parse(crudo)
+    } catch {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT no contiene un JSON válido de cuenta de servicio')
+    }
+    return { projectId, credential: cert(parseado as never) }
+  }
+  const email = process.env.FIREBASE_CLIENT_EMAIL
+  const clave = process.env.FIREBASE_PRIVATE_KEY
+  if (email && clave) {
+    return {
+      projectId,
+      credential: cert({ projectId, clientEmail: email, privateKey: clave.replace(/\\n/g, '\n') }),
+    }
+  }
+  return { projectId }
+}
+
 function firestore(): Firestore {
   if (!appFirebase) {
-    const opciones: { projectId: string; credential?: unknown } = {
-      projectId: process.env.FIREBASE_PROJECT_ID || 'car-cusco',
-    }
-    const saJson = process.env.FIREBASE_SERVICE_ACCOUNT
-    if (saJson) opciones.credential = cert(JSON.parse(saJson))
-    appFirebase = getApps().length ? getApps()[0] : initializeApp(opciones as never)
+    appFirebase = getApps().length ? getApps()[0] : initializeApp(credencialFirestore() as never)
   }
   return getFirestore(appFirebase as never)
 }

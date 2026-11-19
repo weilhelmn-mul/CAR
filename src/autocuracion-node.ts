@@ -15,6 +15,8 @@ function mismosArchivos(a: string, b: string): boolean {
 }
 
 export async function autocuracion() {
+  // Con Firestore (Vercel / Cloud Run) la base SQLite local no aplica.
+  if ((process.env.DATA_BACKEND ?? '').toLowerCase() === 'firestore') return
   try {
     fs.mkdirSync(path.join(process.cwd(), 'db'), { recursive: true })
     fs.mkdirSync(path.join(process.cwd(), 'upload'), { recursive: true })

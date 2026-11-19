@@ -7,6 +7,19 @@ import os from 'os'
 
 let cadena: Promise<unknown> = Promise.resolve()
 
+// LibreOffice está disponible localmente y en Cloud Run (Dockerfile), pero no
+// en funciones serverless como Vercel: ahí se informa con un mensaje claro.
+let haySoffice: boolean | null = null
+
+function sofficeDisponible(): Promise<boolean> {
+  if (haySoffice === null) {
+    haySoffice = new Promise<boolean>((res) => {
+      execFile('soffice', ['--version'], { timeout: 20000 }, (err) => res(!err))
+    })
+  }
+  return haySoffice
+}
+
 export async function xlsxAPdf(xlsx: Buffer, nombreBase: string): Promise<Buffer> {
   const tarea = cadena.then(() => convertir(xlsx, nombreBase))
   cadena = tarea.catch(() => null)
@@ -14,6 +27,9 @@ export async function xlsxAPdf(xlsx: Buffer, nombreBase: string): Promise<Buffer
 }
 
 async function convertir(xlsx: Buffer, nombreBase: string): Promise<Buffer> {
+  if (!(await sofficeDisponible())) {
+    throw new Error('La exportación a PDF no está disponible en este servidor (requiere LibreOffice). Descargue el formato en XLSX (Excel).')
+  }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'at-'))
   const base = nombreBase.replace(/[^\w\-. ]+/g, '_')
   const entrada = path.join(dir, `${base}.xlsx`)
