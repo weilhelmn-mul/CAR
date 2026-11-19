@@ -72,5 +72,6 @@ tests/
 examples/
 
 # Binarios y utilidades de build del escritorio / herramientas internas
-scripts/
+scripts/*
+!scripts/subir-firestore.py
 mini-services/
