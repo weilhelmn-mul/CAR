@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { crearToken } from '@/middleware'
+import { crearToken } from '@/proxy'
 
 const USUARIO = process.env.CAR_USUARIO || 'car'
 const CONTRASENA = process.env.CAR_CONTRASENA || 'CAR-Cusco-2026'
